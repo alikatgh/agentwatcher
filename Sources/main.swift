@@ -34,6 +34,8 @@ struct Prefs {
     }
     static var logFile: String { stateDir + "/loop.log" }
     static var stopFile: String { stateDir + "/STOP" }
+    static func bannerHidden(_ key: String) -> Bool { defaults.bool(forKey: "banner." + key) }
+    static func setBannerHidden(_ key: String, _ value: Bool) { defaults.set(value, forKey: "banner." + key) }
 }
 
 // MARK: - Shell helpers
@@ -148,6 +150,24 @@ func commitEvents(since: String) -> [(date: Date, subject: String, hash: String)
     return items
 }
 
+func webBase() -> String? {
+    let url = run("/usr/bin/git", ["-C", Prefs.project, "remote", "get-url", "origin"]).output
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !url.isEmpty else { return nil }
+    var base = url
+    if base.hasPrefix("git@") {
+        base = base.replacingOccurrences(of: "git@", with: "https://")
+        base = base.replacingOccurrences(of: ":", with: "/")
+    }
+    if base.hasSuffix(".git") { base = String(base.dropLast(4)) }
+    return base.hasPrefix("http") ? base : nil
+}
+
+func openOnGitHub(commit: String) {
+    guard let base = webBase(), let url = URL(string: base + "/commit/" + commit) else { return }
+    NSWorkspace.shared.open(url)
+}
+
 // MARK: - Small views
 
 final class PulseDot: NSView {
@@ -190,6 +210,92 @@ final class CardView: NSView {
     required init?(coder: NSCoder) { fatalError() }
 }
 
+final class InfoBanner: NSView {
+    private var key = ""
+    init(key: String, text: String) {
+        super.init(frame: .zero)
+        self.key = key
+        wantsLayer = true
+        layer?.backgroundColor = NSColor(calibratedWhite: 0.17, alpha: 1).cgColor
+        layer?.cornerRadius = 10
+        layer?.borderWidth = 1
+        layer?.borderColor = NSColor(calibratedWhite: 0.27, alpha: 1).cgColor
+        let icon = NSImageView()
+        icon.image = NSImage(systemSymbolName: "info.circle", accessibilityDescription: nil)
+        icon.contentTintColor = .systemTeal
+        icon.translatesAutoresizingMaskIntoConstraints = false
+        let label = NSTextField(wrappingLabelWithString: text)
+        label.font = .systemFont(ofSize: 11)
+        label.textColor = .secondaryLabelColor
+        label.translatesAutoresizingMaskIntoConstraints = false
+        let close = NSButton(title: "", target: self, action: #selector(closeTapped))
+        close.image = NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: "Hide explanation")
+        close.isBordered = false
+        close.contentTintColor = .tertiaryLabelColor
+        close.toolTip = "Hide this explanation"
+        close.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(icon)
+        addSubview(label)
+        addSubview(close)
+        NSLayoutConstraint.activate([
+            icon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
+            icon.topAnchor.constraint(equalTo: topAnchor, constant: 9),
+            icon.widthAnchor.constraint(equalToConstant: 15),
+            label.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 8),
+            label.topAnchor.constraint(equalTo: topAnchor, constant: 8),
+            label.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
+            close.leadingAnchor.constraint(equalTo: label.trailingAnchor, constant: 8),
+            close.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            close.topAnchor.constraint(equalTo: topAnchor, constant: 5),
+        ])
+        translatesAutoresizingMaskIntoConstraints = false
+        isHidden = Prefs.bannerHidden(key)
+    }
+    required init?(coder: NSCoder) { fatalError() }
+    @objc func closeTapped() {
+        isHidden = true
+        Prefs.setBannerHidden(key, true)
+    }
+}
+
+final class LiveBadge: NSView {
+    init() {
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.systemRed.withAlphaComponent(0.18).cgColor
+        layer?.cornerRadius = 9
+        let label = NSTextField(labelWithString: "LIVE")
+        label.font = .systemFont(ofSize: 10, weight: .bold)
+        label.textColor = .systemRed
+        label.translatesAutoresizingMaskIntoConstraints = false
+        let dot = NSView()
+        dot.wantsLayer = true
+        dot.layer?.backgroundColor = NSColor.systemRed.cgColor
+        dot.layer?.cornerRadius = 4
+        dot.translatesAutoresizingMaskIntoConstraints = false
+        let blink = CABasicAnimation(keyPath: "opacity")
+        blink.fromValue = 1.0
+        blink.toValue = 0.25
+        blink.duration = 0.7
+        blink.autoreverses = true
+        blink.repeatCount = .infinity
+        dot.layer?.add(blink, forKey: "blink")
+        addSubview(dot)
+        addSubview(label)
+        NSLayoutConstraint.activate([
+            dot.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 7),
+            dot.centerYAnchor.constraint(equalTo: centerYAnchor),
+            dot.widthAnchor.constraint(equalToConstant: 8),
+            dot.heightAnchor.constraint(equalToConstant: 8),
+            label.leadingAnchor.constraint(equalTo: dot.trailingAnchor, constant: 5),
+            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor),
+            heightAnchor.constraint(equalToConstant: 18),
+        ])
+    }
+    required init?(coder: NSCoder) { fatalError() }
+}
+
 final class LineChartView: NSView {
     struct Series {
         var name: String
@@ -198,6 +304,24 @@ final class LineChartView: NSView {
         var visible: Bool = true
     }
     var series: [Series] = []
+    private var pulse: CGFloat = 0
+    private var timer: Timer?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window == nil {
+            timer?.invalidate()
+            timer = nil
+        } else if timer == nil {
+            timer = Timer.scheduledTimer(withTimeInterval: 0.06, repeats: true) { [weak self] _ in
+                guard let self else { return }
+                self.pulse += 0.045
+                if self.pulse > 1 { self.pulse -= 1 }
+                self.needsDisplay = true
+            }
+            RunLoop.main.add(timer!, forMode: .common)
+        }
+    }
 
     override func draw(_ dirtyRect: NSRect) {
         let w = bounds.width
@@ -236,8 +360,9 @@ final class LineChartView: NSView {
                 let p1 = points[i]
                 let p2 = points[i + 1]
                 let p3 = i + 2 < points.count ? points[i + 2] : p2
-                let c1 = NSPoint(x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6)
-                let c2 = NSPoint(x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6)
+                let clampY = { (value: CGFloat) -> CGFloat in min(h - 2, max(2, value)) }
+                let c1 = NSPoint(x: p1.x + (p2.x - p0.x) / 6, y: clampY(p1.y + (p2.y - p0.y) / 6))
+                let c2 = NSPoint(x: p2.x - (p3.x - p1.x) / 6, y: clampY(p2.y - (p3.y - p1.y) / 6))
                 line.curve(to: p2, controlPoint1: c1, controlPoint2: c2)
             }
             let fill = line.copy() as! NSBezierPath
@@ -252,6 +377,12 @@ final class LineChartView: NSView {
             line.lineWidth = 2
             line.stroke()
             if let last = points.last {
+                let ringRadius = 6 + 10 * pulse
+                item.color.withAlphaComponent(0.55 * (1 - pulse)).setStroke()
+                let ring = NSBezierPath(ovalIn: NSRect(x: last.x - ringRadius, y: last.y - ringRadius,
+                                                       width: ringRadius * 2, height: ringRadius * 2))
+                ring.lineWidth = 2
+                ring.stroke()
                 NSColor.white.setStroke()
                 item.color.setFill()
                 let dot = NSBezierPath(ovalIn: NSRect(x: last.x - 5, y: last.y - 5, width: 10, height: 10))
@@ -277,7 +408,16 @@ func headerLabel(_ text: String, size: CGFloat, weight: NSFont.Weight = .regular
 }
 
 class Pane: NSViewController, Refreshable {
+    var onNavigate: ((Int) -> Void)?
     func refresh() {}
+
+    @discardableResult
+    func addBanner(_ stack: NSStackView, key: String, text: String) -> InfoBanner {
+        let banner = InfoBanner(key: key, text: text)
+        stack.addArrangedSubview(banner)
+        banner.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52).isActive = true
+        return banner
+    }
     func makeHeader(_ title: String, _ subtitle: String) -> NSStackView {
         let stack = NSStackView()
         stack.orientation = .vertical
@@ -297,7 +437,8 @@ final class OverviewPane: Pane {
     let deltaLabel = headerLabel("", size: 15, weight: .semibold, color: .systemGreen)
     let metricSub = headerLabel("", size: 12, color: .secondaryLabelColor)
     let chart = LineChartView()
-    let recentLabel = headerLabel("", size: 12)
+    let chartUpdated = headerLabel("", size: 11, color: .secondaryLabelColor)
+    let recentStack = NSStackView()
     let startButton = NSButton(title: "Start", target: nil, action: nil)
     let pauseButton = NSButton(title: "Pause", target: nil, action: nil)
     let stopButton = NSButton(title: "Force Stop", target: nil, action: nil)
@@ -338,6 +479,10 @@ final class OverviewPane: Pane {
         headline.addArrangedSubview(statusDot)
         headline.addArrangedSubview(statusLabel)
         headline.addArrangedSubview(spinner)
+        statusLabel.toolTip = "Click to open the live activity feed"
+        statusDot.toolTip = "Click to open the live activity feed"
+        statusLabel.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(goActivity)))
+        statusDot.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(goActivity)))
         stack.addArrangedSubview(headline)
         stack.addArrangedSubview(metricSub)
         stack.addArrangedSubview(headerLabel("Agent activity", size: 12, weight: .semibold, color: .secondaryLabelColor))
@@ -364,17 +509,37 @@ final class OverviewPane: Pane {
 
         let chartCard = CardView()
         chartCard.translatesAutoresizingMaskIntoConstraints = false
+        let chartStack = NSStackView()
+        chartStack.orientation = .vertical
+        chartStack.alignment = .leading
+        chartStack.spacing = 10
+        chartStack.translatesAutoresizingMaskIntoConstraints = false
+        chartCard.addSubview(chartStack)
+        let chartHeader = NSStackView()
+        chartHeader.orientation = .horizontal
+        chartHeader.spacing = 10
+        chartHeader.addArrangedSubview(headerLabel("Agent at work", size: 14, weight: .semibold))
+        chartHeader.addArrangedSubview(LiveBadge())
+        let chartSpacer = NSView()
+        chartSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        chartHeader.addArrangedSubview(chartSpacer)
+        chartHeader.addArrangedSubview(chartUpdated)
         chart.translatesAutoresizingMaskIntoConstraints = false
-        chartCard.addSubview(chart)
+        chartStack.addArrangedSubview(chartHeader)
+        chartStack.addArrangedSubview(chart)
         NSLayoutConstraint.activate([
-            chart.topAnchor.constraint(equalTo: chartCard.topAnchor, constant: 14),
-            chart.bottomAnchor.constraint(equalTo: chartCard.bottomAnchor, constant: -14),
-            chart.leadingAnchor.constraint(equalTo: chartCard.leadingAnchor, constant: 18),
-            chart.trailingAnchor.constraint(equalTo: chartCard.trailingAnchor, constant: -18),
-            chart.heightAnchor.constraint(equalToConstant: 170),
+            chartStack.topAnchor.constraint(equalTo: chartCard.topAnchor, constant: 14),
+            chartStack.bottomAnchor.constraint(equalTo: chartCard.bottomAnchor, constant: -14),
+            chartStack.leadingAnchor.constraint(equalTo: chartCard.leadingAnchor, constant: 18),
+            chartStack.trailingAnchor.constraint(equalTo: chartCard.trailingAnchor, constant: -18),
+            chartHeader.widthAnchor.constraint(equalTo: chartStack.widthAnchor),
+            chart.widthAnchor.constraint(equalTo: chartStack.widthAnchor),
+            chart.heightAnchor.constraint(equalToConstant: 280),
         ])
         stack.addArrangedSubview(chartCard)
         chartCard.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52).isActive = true
+        chartCard.toolTip = "Click to cycle the range (1D / 5D / 1M)"
+        chartCard.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(cycleRange)))
 
         let buttonRow = NSStackView()
         buttonRow.orientation = .horizontal
@@ -397,18 +562,21 @@ final class OverviewPane: Pane {
 
         let recentCard = CardView()
         recentCard.translatesAutoresizingMaskIntoConstraints = false
-        recentLabel.translatesAutoresizingMaskIntoConstraints = false
-        recentLabel.maximumNumberOfLines = 6
-        recentCard.addSubview(recentLabel)
+        recentStack.orientation = .vertical
+        recentStack.alignment = .leading
+        recentStack.spacing = 4
+        recentStack.translatesAutoresizingMaskIntoConstraints = false
+        recentCard.addSubview(recentStack)
         NSLayoutConstraint.activate([
-            recentLabel.topAnchor.constraint(equalTo: recentCard.topAnchor, constant: 14),
-            recentLabel.bottomAnchor.constraint(equalTo: recentCard.bottomAnchor, constant: -14),
-            recentLabel.leadingAnchor.constraint(equalTo: recentCard.leadingAnchor, constant: 18),
-            recentLabel.trailingAnchor.constraint(equalTo: recentCard.trailingAnchor, constant: -18),
+            recentStack.topAnchor.constraint(equalTo: recentCard.topAnchor, constant: 12),
+            recentStack.bottomAnchor.constraint(equalTo: recentCard.bottomAnchor, constant: -12),
+            recentStack.leadingAnchor.constraint(equalTo: recentCard.leadingAnchor, constant: 18),
+            recentStack.trailingAnchor.constraint(equalTo: recentCard.trailingAnchor, constant: -18),
         ])
         stack.addArrangedSubview(recentCard)
         recentCard.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52).isActive = true
 
+        addBanner(stack, key: "overview", text: "Watching your background agent: the big number counts increments (commits) landed today, the chart shows activity for the selected range, and the buttons start, pause or stop the worker. Everything here is clickable — try the commits, the status dot and the chart.")
         view = root
     }
 
@@ -430,6 +598,17 @@ final class OverviewPane: Pane {
     @objc func chipToggled() { refresh() }
 
     @objc func rangeChanged() { refresh() }
+
+    @objc func goActivity() { onNavigate?(1) }
+
+    @objc func cycleRange() {
+        rangeControl.selectedSegment = (rangeControl.selectedSegment + 1) % 3
+        refresh()
+    }
+
+    @objc func openRecent(_ sender: NSButton) {
+        if let commit = sender.identifier?.rawValue { openOnGitHub(commit: commit) }
+    }
 
     @objc func openFolder() {
         NSWorkspace.shared.open(URL(fileURLWithPath: Prefs.project))
@@ -456,7 +635,7 @@ final class OverviewPane: Pane {
         switch range {
         case 1: since = "5.days"; count = 5; seconds = 86400
         case 2: since = "30.days"; count = 30; seconds = 86400
-        default: since = "24.hours"; count = 24; seconds = 3600
+        default: since = "24.hours"; count = 96; seconds = 900
         }
         var commits = [CGFloat](repeating: 0, count: count)
         for item in commitEvents(since: since) {
@@ -491,6 +670,7 @@ final class OverviewPane: Pane {
         deltaLabel.textColor = diff >= 0 ? .systemGreen : .systemRed
         let stamp = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
         metricSub.stringValue = "increments landed today  ·  updated \(stamp)"
+        chartUpdated.stringValue = "updated \(stamp)"
 
         let data = buckets(rangeControl.selectedSegment)
         chart.series = [
@@ -501,8 +681,22 @@ final class OverviewPane: Pane {
         ]
         chart.needsDisplay = true
 
-        let recent = run("/usr/bin/git", ["-C", Prefs.project, "log", "-5", "--pretty=format:%h  %s  (%cr)"]).output
-        recentLabel.stringValue = recent.isEmpty ? "No commits yet." : recent
+        let recent = run("/usr/bin/git", ["-C", Prefs.project, "log", "-5", "--pretty=format:%h|%s|%cr"]).output
+        recentStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        for line in recent.split(separator: "\n") {
+            let parts = line.split(separator: "|", maxSplits: 2).map(String.init)
+            guard parts.count == 3 else { continue }
+            let button = NSButton(title: "\(parts[0])  \(parts[1])  (\(parts[2]))", target: self, action: #selector(openRecent(_:)))
+            button.isBordered = false
+            button.alignment = .left
+            button.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+            button.toolTip = "Open \(parts[0]) on GitHub"
+            button.identifier = NSUserInterfaceItemIdentifier(parts[0])
+            recentStack.addArrangedSubview(button)
+        }
+        if recentStack.arrangedSubviews.isEmpty {
+            recentStack.addArrangedSubview(headerLabel("No commits yet.", size: 12))
+        }
     }
 }
 
@@ -552,7 +746,7 @@ final class ActivityPane: Pane {
         scroll.layer?.borderColor = NSColor(calibratedWhite: 0.24, alpha: 1).cgColor
         stack.addArrangedSubview(scroll)
         scroll.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52).isActive = true
-        scroll.bottomAnchor.constraint(equalTo: stack.bottomAnchor, constant: -22).isActive = true
+        addBanner(stack, key: "activity", text: "The worker's own log, streamed live. Follow keeps the newest lines in view.")
         view = root
     }
 
@@ -607,8 +801,16 @@ final class IncrementsPane: Pane {
         scroll.layer?.borderColor = NSColor(calibratedWhite: 0.24, alpha: 1).cgColor
         stack.addArrangedSubview(scroll)
         scroll.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52).isActive = true
-        scroll.bottomAnchor.constraint(equalTo: stack.bottomAnchor, constant: -22).isActive = true
+        table.target = self
+        table.doubleAction = #selector(openCommit)
+        table.toolTip = "Double-click a row to open the commit on GitHub"
+        addBanner(stack, key: "increments", text: "Every committed work increment, newest first. Double-click a row to open it on GitHub.")
         view = root
+    }
+
+    @objc func openCommit() {
+        let row = table.selectedRow
+        if row >= 0 && row < rows.count { openOnGitHub(commit: rows[row].0) }
     }
 
     override func refresh() {
@@ -690,9 +892,14 @@ final class SessionsPane: Pane {
         scroll.layer?.borderColor = NSColor(calibratedWhite: 0.24, alpha: 1).cgColor
         stack.addArrangedSubview(scroll)
         scroll.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52).isActive = true
-        scroll.bottomAnchor.constraint(equalTo: stack.bottomAnchor, constant: -22).isActive = true
+        table.target = self
+        table.doubleAction = #selector(openSession)
+        table.toolTip = "Double-click a session to open the live interface"
+        addBanner(stack, key: "sessions", text: "OpenCode sessions for this project. Double-click one to open the live interface.")
         view = root
     }
+
+    @objc func openSession() { onNavigate?(4) }
 
     override func refresh() {
         let result = run("\(home)/.opencode/bin/opencode", ["session", "list"], cwd: Prefs.project)
@@ -763,7 +970,7 @@ final class LivePane: Pane, WKNavigationDelegate {
         web.translatesAutoresizingMaskIntoConstraints = false
         stack.addArrangedSubview(web)
         web.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52).isActive = true
-        web.bottomAnchor.constraint(equalTo: stack.bottomAnchor, constant: -22).isActive = true
+        addBanner(stack, key: "live", text: "The full OpenCode web interface, embedded and paired automatically. Press Reconnect if the connection drops.")
         view = root
     }
 
@@ -843,6 +1050,7 @@ final class SettingsPane: Pane {
         save.bezelStyle = .rounded
         stack.addArrangedSubview(save)
         stack.addArrangedSubview(infoLabel)
+        addBanner(stack, key: "settings", text: "Point AgentWatcher at your project, the worker script it should run, and where the worker keeps its state. No project files are modified.")
         view = root
     }
 
@@ -966,6 +1174,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let pane = panes.count > index ? panes[index] : sections[index].make()
         if panes.count <= index {
             panes.append(pane)
+        }
+        pane.onNavigate = { [weak self] index in
+            guard let self else { return }
+            self.sidebar.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
+            self.showPane(index)
         }
         let paneView = pane.view
         paneView.translatesAutoresizingMaskIntoConstraints = false
