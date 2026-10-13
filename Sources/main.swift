@@ -367,6 +367,12 @@ final class CardView: NSView {
     required init?(coder: NSCoder) { fatalError() }
 }
 
+final class ClickRow: NSView {
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .pointingHand)
+    }
+}
+
 final class InfoBanner: NSView {
     private var key = ""
     init(key: String, text: String) {
@@ -826,7 +832,9 @@ final class OverviewPane: Pane {
         deltaLabel.stringValue = "\(diff >= 0 ? "+" : "")\(diff) vs yesterday"
         deltaLabel.textColor = diff >= 0 ? Theme.success : Theme.danger
         let stamp = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
-        metricSub.stringValue = "increments landed today  ·  updated \(stamp)"
+        metricSub.stringValue = Prefs.worker.isEmpty
+            ? "No worker detected — open Settings to point AgentWatcher at a script."
+            : "increments landed today  ·  updated \(stamp)"
         chartUpdated.stringValue = "updated \(stamp)"
 
         let data = buckets(rangeControl.selectedSegment)
@@ -1136,7 +1144,7 @@ final class ActivityPane: Pane {
     // MARK: - Left list
 
     func makeRow(_ card: RunCard) -> NSView {
-        let row = NSView()
+        let row = ClickRow()
         row.wantsLayer = true
         row.translatesAutoresizingMaskIntoConstraints = false
         let selected = card.key == selectedKey
@@ -2536,6 +2544,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var rightPanel: NSView!
     var rightPanelWidth: NSLayoutConstraint!
     var showRightButton: NSButton!
+    var railButtons: [NSButton] = []
+    var statusItem: NSStatusItem!
+    var navHistory: [Int] = []
+    var navIndex = -1
+    var titleItem: NSToolbarItem?
+    var badgeItem: NSToolbarItem?
+
+    func buildToolbar() {
+        let toolbar = NSToolbar(identifier: "AgentWatcher.Toolbar")
+        toolbar.delegate = self
+        toolbar.displayMode = .iconOnly
+        toolbar.allowsUserCustomization = false
+        window.toolbar = toolbar
+        window.toolbarStyle = .unified
+    }
+
+    func pushHistory(_ index: Int) {
+        if navHistory.last != index {
+            navHistory = Array(navHistory.prefix(navIndex + 1))
+            navHistory.append(index)
+            navIndex = navHistory.count - 1
+        }
+    }
+
+    @objc func navBack() {
+        guard navIndex > 0 else { return }
+        navIndex -= 1
+        let target = navHistory[navIndex]
+        sidebar.selectRowIndexes(IndexSet(integer: target), byExtendingSelection: false)
+        showPane(target)
+    }
+
+    @objc func navForward() {
+        guard navIndex + 1 < navHistory.count else { return }
+        navIndex += 1
+        let target = navHistory[navIndex]
+        sidebar.selectRowIndexes(IndexSet(integer: target), byExtendingSelection: false)
+        showPane(target)
+    }
 
     @objc func toggleRightPanel() {
         Prefs.rightPanel.toggle()
@@ -2545,21 +2592,79 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if Prefs.rightPanel { rightPane.refresh() }
     }
 
+    func selectSection(_ index: Int) {
+        guard index >= 0 && index < sections.count else { return }
+        pushHistory(index)
+        sidebar.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
+        showPane(index)
+    }
+
+    @objc func railClicked(_ sender: NSButton) {
+        selectSection(sender.tag)
+    }
+
+    @objc func menuSelect(_ sender: NSMenuItem) {
+        selectSection(sender.tag)
+    }
+
+    @objc func refreshAllNow() {
+        refreshCurrent()
+        if !rightPanel.isHidden { rightPane.refresh() }
+    }
+
     let sections: [Section] = [
-        Section(title: "Overview", symbol: "gauge", tint: Theme.primary) { OverviewPane() },
+        Section(title: "Overview", symbol: "house", tint: Theme.primary) { OverviewPane() },
         Section(title: "Live Activity", symbol: "waveform.path.ecg", tint: Theme.accent) { ActivityPane() },
-        Section(title: "Processes", symbol: "cpu", tint: Theme.plan) { ProcessesPane() },
-        Section(title: "Increments", symbol: "checklist", tint: Theme.success) { IncrementsPane() },
-        Section(title: "Changes", symbol: "plus.forwardslash.minus", tint: Theme.primary) { ChangesPane() },
-        Section(title: "Sessions", symbol: "bubble.left.and.bubble.right", tint: Theme.writer) { SessionsPane() },
-        Section(title: "Live Sessions", symbol: "globe", tint: Theme.warning) { LivePane() },
+        Section(title: "Processes", symbol: "clock.arrow.circlepath", tint: Theme.plan) { ProcessesPane() },
+        Section(title: "Increments", symbol: "square.grid.2x2", tint: Theme.success) { IncrementsPane() },
+        Section(title: "Changes", symbol: "arrow.triangle.branch", tint: Theme.primary) { ChangesPane() },
+        Section(title: "Sessions", symbol: "clock", tint: Theme.writer) { SessionsPane() },
+        Section(title: "Live Sessions", symbol: "square.and.pencil", tint: Theme.warning) { LivePane() },
         Section(title: "Settings", symbol: "gearshape", tint: Theme.textMuted) { SettingsPane() },
     ]
+
+    func buildStatusItem() {
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        if let button = statusItem.button {
+            button.image = NSImage(systemSymbolName: "eye.circle", accessibilityDescription: "AgentWatcher")
+            button.image?.isTemplate = true
+            button.toolTip = "AgentWatcher"
+        }
+        let menu = NSMenu()
+        menu.delegate = self
+        statusItem.menu = menu
+    }
+
+    @objc func showAbout() {
+        NSApp.orderFrontStandardAboutPanel(options: [
+            .applicationName: "AgentWatcher",
+            .applicationVersion: "0.1.0",
+            .version: "1",
+            .credits: NSAttributedString(string: "A watcher for continuous background coding agents.\nDesign language and theme from OpenCode (MIT)."),
+        ])
+    }
+
+    @objc func startWorkFromMenu() {
+        startWorker()
+        refreshAllNow()
+    }
+
+    @objc func pauseWorkFromMenu() {
+        bash("mkdir -p \"\(Prefs.stateDir)\"; touch \"\(Prefs.stopFile)\"")
+    }
+
+    @objc func openAppFromMenu() {
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMenu()
         panes = sections.map { $0.make() }
         buildWindow()
+        buildStatusItem()
+        navHistory = [0]
+        navIndex = 0
         if Prefs.autoStart && !Prefs.worker.isEmpty && !AgentStatus.current().running {
             startWorker()
         }
@@ -2575,12 +2680,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let appItem = NSMenuItem()
         mainMenu.addItem(appItem)
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "About AgentWatcher", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        appMenu.addItem(withTitle: "About AgentWatcher", action: #selector(showAbout), keyEquivalent: "")
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Hide AgentWatcher", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Quit AgentWatcher", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
+
+        let viewItem = NSMenuItem()
+        mainMenu.addItem(viewItem)
+        let viewMenu = NSMenu(title: "View")
+        for (index, section) in sections.enumerated() {
+            let item = NSMenuItem(title: section.title, action: #selector(menuSelect(_:)), keyEquivalent: String(index + 1))
+            item.keyEquivalentModifierMask = [.command]
+            item.tag = index
+            item.target = self
+            viewMenu.addItem(item)
+        }
+        viewMenu.addItem(.separator())
+        let refreshItem = NSMenuItem(title: "Refresh", action: #selector(refreshAllNow), keyEquivalent: "r")
+        refreshItem.target = self
+        viewMenu.addItem(refreshItem)
+        let panelItem = NSMenuItem(title: "Toggle Changes Panel", action: #selector(toggleRightPanel), keyEquivalent: "b")
+        panelItem.target = self
+        viewMenu.addItem(panelItem)
+        viewItem.submenu = viewMenu
         NSApp.mainMenu = mainMenu
     }
 
@@ -2660,10 +2784,62 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         root.addSubview(rightPanel)
         root.addSubview(showRightButton)
         rightPanelWidth = rightPanel.widthAnchor.constraint(equalToConstant: Prefs.rightPanel ? 400 : 0)
+
+        // Icon rail: one-click jumps between views (the reference's left strip).
+        let rail = NSStackView()
+        rail.orientation = .vertical
+        rail.spacing = 6
+        rail.edgeInsets = NSEdgeInsets(top: 12, left: 0, bottom: 12, right: 0)
+        rail.translatesAutoresizingMaskIntoConstraints = false
+        rail.wantsLayer = true
+        rail.layer?.backgroundColor = Theme.deep.cgColor
+        railButtons = []
+        for (index, section) in sections.enumerated() {
+            let button = NSButton(title: "", target: self, action: #selector(railClicked(_:)))
+            button.image = NSImage(systemSymbolName: section.symbol, accessibilityDescription: section.title)
+            button.imagePosition = .imageOnly
+            button.isBordered = false
+            button.contentTintColor = section.tint
+            button.tag = index
+            button.toolTip = "\(section.title) (⌘\(index + 1))"
+            button.translatesAutoresizingMaskIntoConstraints = false
+            button.wantsLayer = true
+            button.layer?.cornerRadius = 8
+            NSLayoutConstraint.activate([
+                button.widthAnchor.constraint(equalToConstant: 30),
+                button.heightAnchor.constraint(equalToConstant: 30),
+            ])
+            rail.addArrangedSubview(button)
+            if section.title == "Settings" {
+                let separator = NSBox()
+                separator.boxType = .separator
+                separator.translatesAutoresizingMaskIntoConstraints = false
+                separator.widthAnchor.constraint(equalToConstant: 26).isActive = true
+                rail.addArrangedSubview(separator)
+            }
+            railButtons.append(button)
+        }
+        let avatar = NSButton(title: "", target: self, action: #selector(showAbout))
+        avatar.image = NSApp.applicationIconImage
+        avatar.image?.size = NSSize(width: 26, height: 26)
+        avatar.imagePosition = .imageOnly
+        avatar.isBordered = false
+        avatar.toolTip = "About AgentWatcher"
+        avatar.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
+            avatar.widthAnchor.constraint(equalToConstant: 32),
+            avatar.heightAnchor.constraint(equalToConstant: 32),
+        ])
+        rail.addArrangedSubview(avatar)
+        root.addSubview(rail)
+        NSLayoutConstraint.activate([
+            rail.topAnchor.constraint(equalTo: root.topAnchor),
+            rail.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            rail.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            rail.widthAnchor.constraint(equalToConstant: 46),
             sidebarScroll.topAnchor.constraint(equalTo: root.topAnchor),
             sidebarScroll.bottomAnchor.constraint(equalTo: root.bottomAnchor),
-            sidebarScroll.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            sidebarScroll.leadingAnchor.constraint(equalTo: rail.trailingAnchor),
             content.topAnchor.constraint(equalTo: root.topAnchor),
             content.bottomAnchor.constraint(equalTo: root.bottomAnchor),
             content.leadingAnchor.constraint(equalTo: sidebarScroll.trailingAnchor),
@@ -2678,6 +2854,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         rightPanel.isHidden = !Prefs.rightPanel
         showRightButton.isHidden = Prefs.rightPanel
         window.contentView = root
+        window.setFrameAutosaveName("AgentWatcher.Main")
+        buildToolbar()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         showPane(0)
@@ -2686,6 +2864,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func showPane(_ index: Int) {
         current = index
         content.subviews.forEach { $0.removeFromSuperview() }
+        for (buttonIndex, button) in railButtons.enumerated() {
+            button.layer?.backgroundColor = (buttonIndex == index ? Theme.layer02.cgColor : NSColor.clear.cgColor)
+        }
+        (titleItem?.view as? NSTextField)?.stringValue = sections[index].title
         let pane = panes[index]
         pane.onNavigate = { [weak self] index in
             guard let self else { return }
@@ -2707,6 +2889,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func refreshCurrent() {
         if panes.count > current { panes[current].refresh() }
         if !rightPanel.isHidden { rightPane.refresh() }
+        let todayCount = commitEvents(since: "midnight").count
+        (badgeItem?.view as? NSTextField)?.stringValue = "\(todayCount)"
     }
 }
 
@@ -2735,7 +2919,108 @@ extension AppDelegate: NSTableViewDataSource, NSTableViewDelegate {
     }
     func tableViewSelectionDidChange(_ notification: Notification) {
         let row = sidebar.selectedRow
-        if row >= 0 && row != current { showPane(row) }
+        if row >= 0 && row != current { selectSection(row) }
+    }
+}
+
+extension AppDelegate: NSMenuDelegate {
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+        let status = AgentStatus.current()
+        let statusLine = NSMenuItem(title: "Agent: \(status.title)", action: nil, keyEquivalent: "")
+        statusLine.isEnabled = false
+        menu.addItem(statusLine)
+        let latest = run("/usr/bin/git", ["-C", Prefs.project, "log", "-1", "--pretty=%h %s"]).output
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if !latest.isEmpty {
+            let latestItem = NSMenuItem(title: "Latest: \(String(latest.prefix(60)))", action: nil, keyEquivalent: "")
+            latestItem.isEnabled = false
+            menu.addItem(latestItem)
+        }
+        menu.addItem(.separator())
+        if status.running {
+            let pause = NSMenuItem(title: "Pause After Current Run", action: #selector(pauseWorkFromMenu), keyEquivalent: "")
+            pause.target = self
+            menu.addItem(pause)
+        } else {
+            let start = NSMenuItem(title: "Start 24/7 Work", action: #selector(startWorkFromMenu), keyEquivalent: "")
+            start.target = self
+            menu.addItem(start)
+        }
+        let open = NSMenuItem(title: "Open AgentWatcher", action: #selector(openAppFromMenu), keyEquivalent: "")
+        open.target = self
+        menu.addItem(open)
+        menu.addItem(.separator())
+        menu.addItem(NSMenuItem(title: "Quit AgentWatcher", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+    }
+}
+
+extension NSToolbarItem.Identifier {
+    static let navBack = NSToolbarItem.Identifier("AgentWatcher.navBack")
+    static let navForward = NSToolbarItem.Identifier("AgentWatcher.navForward")
+    static let navTitle = NSToolbarItem.Identifier("AgentWatcher.navTitle")
+    static let toggleSummary = NSToolbarItem.Identifier("AgentWatcher.toggleSummary")
+    static let badge = NSToolbarItem.Identifier("AgentWatcher.badge")
+}
+
+extension AppDelegate: NSToolbarDelegate {
+    func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier itemIdentifier: NSToolbarItem.Identifier,
+                 willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
+        switch itemIdentifier {
+        case .navBack:
+            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+            item.image = NSImage(systemSymbolName: "chevron.left", accessibilityDescription: "Back")
+            item.target = self
+            item.action = #selector(navBack)
+            item.label = "Back"
+            item.toolTip = "Back"
+            return item
+        case .navForward:
+            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+            item.image = NSImage(systemSymbolName: "chevron.right", accessibilityDescription: "Forward")
+            item.target = self
+            item.action = #selector(navForward)
+            item.label = "Forward"
+            item.toolTip = "Forward"
+            return item
+        case .navTitle:
+            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+            let label = NSTextField(labelWithString: "Overview")
+            label.font = .systemFont(ofSize: 13, weight: .semibold)
+            item.view = label
+            item.label = "View"
+            titleItem = item
+            return item
+        case .toggleSummary:
+            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+            item.image = NSImage(systemSymbolName: "sidebar.right", accessibilityDescription: "Toggle summary")
+            item.target = self
+            item.action = #selector(toggleRightPanel)
+            item.label = "Toggle summary"
+            item.toolTip = "Toggle summary"
+            return item
+        case .badge:
+            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+            let label = NSTextField(labelWithString: "0")
+            label.font = .monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
+            label.textColor = Theme.primary
+            label.toolTip = "Increments landed today"
+            item.view = label
+            item.label = "Today"
+            item.toolTip = "Increments landed today"
+            badgeItem = item
+            return item
+        default:
+            return nil
+        }
+    }
+
+    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        [.navBack, .navForward, .flexibleSpace, .navTitle, .flexibleSpace, .badge, .toggleSummary]
+    }
+
+    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        toolbarDefaultItemIdentifiers(toolbar)
     }
 }
 

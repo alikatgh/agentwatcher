@@ -1,24 +1,36 @@
 # AgentWatcher
 
-A button-based macOS dashboard for watching and steering a continuous
-background coding agent — no terminal required.
+[![Build](https://github.com/alikatgh/agentwatcher/actions/workflows/build.yml/badge.svg)](https://github.com/alikatgh/agentwatcher/actions/workflows/build.yml)
 
-AgentWatcher connects to a long-running "worker" script (for example, an
-OpenCode agent loop that completes one verified work increment at a time)
-and shows, in a single dark dashboard:
+A native macOS dashboard for watching continuous background coding agents —
+no terminal required. The design language, theme and UI patterns are taken
+directly from OpenCode's open-sourced macOS client.
 
-- **Overview** — a live status indicator, today's landed increments with a
-  day-over-day delta, and a smooth 1D/5D/1M activity chart of increments and
-  agent runs.
-- **Live Activity** — the streaming driver log.
-- **Increments** — the project's committed work, newest first.
-- **Sessions** — OpenCode sessions for the project.
-- **Live Sessions** — the full OpenCode interface embedded in the app
-  (pairing handled automatically).
-- **Settings** — project folder, worker script and state folder.
+## Features
 
-Start, Pause and Force Stop buttons control the worker directly; everything
-updates live every few seconds.
+- **Overview** — live status with a pulsing indicator, today's increments and
+  a day-over-day delta, and a 1D/5D/1M activity chart with a live endpoint
+- **Live Activity** — every agent run as a card; the selected run opens in the
+  right sidebar: **Output** (filtered, line-numbered log) and **Context**
+  (the session's message list with expandable JSON)
+- **Processes** — every live process belonging to the agent (worker loop,
+  keep-awake helper, OpenCode runs) with CPU, memory, elapsed time and a
+  clean SIGTERM stop button
+- **Increments** — every committed increment with message, author, changed
+  files and a colorized diff; double-click copies the hash
+- **Changes** — the agent's working tree, live: branch and upstream,
+  per-file `+N −M` counts with a filter, and a line-numbered diff viewer
+  with prev/next — refreshed every couple of seconds while the agent edits
+- **Sessions** — filterable list; double-click opens the full step-by-step
+  transcript: message cards, collapsible tool calls with pretty input and
+  captured output, colored edit diffs, expand/collapse all
+- **Live Sessions** — the complete OpenCode interface embedded, paired
+  automatically with the one-time link
+- **Global right sidebar** — the Changes panel persists on every view
+  (⌘B to toggle)
+- **Keyboard shortcuts** — ⌘1–⌘8 jump between views, ⌘R refreshes
+- **Menu bar watcher** — status, latest commit, start/pause without opening
+  the window
 
 ## Build
 
@@ -28,27 +40,26 @@ bash build.sh
 
 Produces `dist/AgentWatcher.app` (ad-hoc signed) and
 `dist/AgentWatcher-0.1.0.dmg` with a drag-to-Applications layout.
+Requires macOS 15+ and Xcode command line tools; the icon generation
+additionally uses Python with Pillow (skipped gracefully if absent).
 
-Requirements: macOS 15+, Xcode command line tools, and Python with Pillow
-for icon generation (`/opt/homebrew/bin/python3` with `Pillow`).
+## CI and releases
+
+Every push builds the app and DMG on GitHub Actions, verifies the ad-hoc
+signature and DMG checksum, and uploads the DMG as an artifact. Pushing a
+`v*` tag publishes a GitHub Release with the DMG attached.
 
 ## How it works
 
 AgentWatcher is a thin, safe layer over the same commands a terminal user
-would run:
-
-- status: checks whether the worker process is alive and whether the STOP
-  file exists
-- Start: launches the worker under `caffeinate` (keeps the Mac awake)
-- Pause: creates the worker's STOP file (the worker stops after its current
-  increment)
-- Force Stop: stops the worker process immediately
-- Live Sessions: runs `opencode pair` and embeds the authenticated web
-  interface in a WebKit view
-
-No project files are modified by AgentWatcher.
+would run: status via the worker process and its STOP file, start under
+`caffeinate`, pause by creating the STOP file, stop with SIGTERM, live
+sessions via `opencode pair`, transcripts via `opencode session export`,
+and all repository data via read-only `git` queries. It never modifies your
+project files.
 
 ## License
 
 No license has been chosen yet. All rights reserved by the author until a
-license is added.
+license is added. Portions of the visual design are inspired by OpenCode,
+which is MIT licensed.
