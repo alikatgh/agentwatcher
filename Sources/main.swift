@@ -1047,12 +1047,12 @@ final class ActivityPane: Pane {
 
         columns.addArrangedSubview(listScroll)
         columns.addArrangedSubview(right)
+        stack.addArrangedSubview(columns)
         NSLayoutConstraint.activate([
             columns.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52),
             listScroll.heightAnchor.constraint(equalTo: columns.heightAnchor),
             right.heightAnchor.constraint(equalTo: columns.heightAnchor),
         ])
-        stack.addArrangedSubview(columns)
         addBanner(stack, key: "activity", text: "Every agent run on the left; the selected run opens in the right sidebar. Output shows the full captured log with a filter; Context shows the session's message list with expandable JSON.")
         view = root
     }
@@ -2417,12 +2417,12 @@ final class ChangesPane: Pane {
 
         columns.addArrangedSubview(leftColumn)
         columns.addArrangedSubview(rightColumn)
+        stack.addArrangedSubview(columns)
         NSLayoutConstraint.activate([
             columns.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52),
             leftColumn.heightAnchor.constraint(equalTo: columns.heightAnchor),
             rightColumn.heightAnchor.constraint(equalTo: columns.heightAnchor),
         ])
-        stack.addArrangedSubview(columns)
         addBanner(stack, key: "changes", text: "Everything the agent has changed and not yet committed: branch, per-file counts and the live diff. Updates every couple of seconds while the agent works.")
         view = root
     }
@@ -2747,6 +2747,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func buildWindow() {
+        NSLog("AgentWatcher: buildWindow start")
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1080, height: 720),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable],
                           backing: .buffered, defer: false)
@@ -2893,11 +2894,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         rightPanel.isHidden = !Prefs.rightPanel
         showRightButton.isHidden = Prefs.rightPanel
         window.contentView = root
+        NSLog("AgentWatcher: content set")
         window.setFrameAutosaveName("AgentWatcher.Main")
         buildToolbar()
+        NSLog("AgentWatcher: toolbar built")
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        NSLog("AgentWatcher: window ordered front")
         showPane(0)
+        NSLog("AgentWatcher: first pane shown")
     }
 
     func showPane(_ index: Int) {
@@ -3074,4 +3079,9 @@ let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
 app.setActivationPolicy(.regular)
+NSSetUncaughtExceptionHandler { exception in
+    let text = "UNCAUGHT \(exception.name.rawValue): \(exception.reason ?? "?")\n" + exception.callStackSymbols.joined(separator: "\n") + "\n"
+    try? text.write(toFile: NSHomeDirectory() + "/agentwatcher-crash.log", atomically: true, encoding: .utf8)
+    FileHandle.standardError.write(text.data(using: .utf8)!)
+}
 app.run()
