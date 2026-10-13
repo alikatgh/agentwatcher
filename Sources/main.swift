@@ -12,30 +12,110 @@ let home = NSHomeDirectory()
 
 struct Prefs {
     static let defaults = UserDefaults.standard
-    static var defaultProject: String {
-        let candidate = "\(home)/Documents/projects/swift_game"
-        return FileManager.default.fileExists(atPath: candidate) ? candidate : home
-    }
-    static var defaultWorker: String {
-        let candidate = "\(home)/.local/bin/nyurgun-agent-loop.sh"
-        return FileManager.default.fileExists(atPath: candidate) ? candidate : ""
-    }
     static var project: String {
-        get { defaults.string(forKey: "project") ?? defaultProject }
+        get {
+            if let stored = defaults.string(forKey: "project"),
+               FileManager.default.fileExists(atPath: stored) { return stored }
+            let detected = AutoDetect.project().value ?? home
+            defaults.set(detected, forKey: "project")
+            return detected
+        }
         set { defaults.set(newValue, forKey: "project") }
     }
     static var worker: String {
-        get { defaults.string(forKey: "worker") ?? defaultWorker }
+        get {
+            if let stored = defaults.string(forKey: "worker"), !stored.isEmpty,
+               FileManager.default.fileExists(atPath: stored) { return stored }
+            let detected = AutoDetect.worker().value ?? ""
+            defaults.set(detected, forKey: "worker")
+            return detected
+        }
         set { defaults.set(newValue, forKey: "worker") }
     }
     static var stateDir: String {
-        get { defaults.string(forKey: "state") ?? "\(home)/.local/state/nyurgun-agent" }
+        get {
+            if let stored = defaults.string(forKey: "state"),
+               FileManager.default.fileExists(atPath: stored) { return stored }
+            let detected = AutoDetect.state(forWorker: worker).value ?? "\(home)/.local/state/agentwatcher"
+            defaults.set(detected, forKey: "state")
+            return detected
+        }
         set { defaults.set(newValue, forKey: "state") }
     }
     static var logFile: String { stateDir + "/loop.log" }
     static var stopFile: String { stateDir + "/STOP" }
+    static var autoStart: Bool {
+        get { defaults.object(forKey: "autoStart") == nil ? true : defaults.bool(forKey: "autoStart") }
+        set { defaults.set(newValue, forKey: "autoStart") }
+    }
     static func bannerHidden(_ key: String) -> Bool { defaults.bool(forKey: "banner." + key) }
     static func setBannerHidden(_ key: String, _ value: Bool) { defaults.set(value, forKey: "banner." + key) }
+}
+
+struct AutoDetect {
+    static func project() -> (value: String?, source: String) {
+        let fm = FileManager.default
+        let roots = ["\(home)/Documents/projects", "\(home)/Projects", "\(home)/code",
+                     "\(home)/Developer", "\(home)/src", "\(home)/work"]
+        var best: (String, Int, Date)?
+        for root in roots {
+            guard let children = try? fm.contentsOfDirectory(atPath: root) else { continue }
+            for child in children where !child.hasPrefix(".") {
+                let path = root + "/" + child
+                var isDir: ObjCBool = false
+                guard fm.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else { continue }
+                var score = 0
+                if fm.fileExists(atPath: path + "/.git") { score += 1 }
+                if fm.fileExists(atPath: path + "/AGENTS.md") { score += 2 }
+                if fm.fileExists(atPath: path + "/opencode.json") || fm.fileExists(atPath: path + "/opencode.jsonc") { score += 1 }
+                guard score > 0 else { continue }
+                let date = (try? fm.attributesOfItem(atPath: path)[.modificationDate] as? Date) ?? .distantPast
+                if best == nil || score > best!.1 || (score == best!.1 && date > best!.2) {
+                    best = (path, score, date)
+                }
+            }
+        }
+        return (best?.0, best == nil ? "no project found" : "detected a git project with agent instructions")
+    }
+
+    static func worker() -> (value: String?, source: String) {
+        let fm = FileManager.default
+        var candidates: [(String, Date)] = []
+        for dir in ["\(home)/.local/bin", "\(home)/bin"] {
+            guard let files = try? fm.contentsOfDirectory(atPath: dir) else { continue }
+            for file in files {
+                let lower = file.lowercased()
+                guard lower.hasSuffix(".sh"), lower.contains("loop") || lower.contains("agent") else { continue }
+                let path = dir + "/" + file
+                guard fm.isExecutableFile(atPath: path) else { continue }
+                let date = (try? fm.attributesOfItem(atPath: path)[.modificationDate] as? Date) ?? .distantPast
+                candidates.append((path, date))
+            }
+        }
+        let best = candidates.max { $0.1 < $1.1 }
+        return (best?.0, best == nil ? "no worker script found" : "found an agent loop script")
+    }
+
+    static func state(forWorker worker: String) -> (value: String?, source: String) {
+        let fm = FileManager.default
+        var name = (worker as NSString).lastPathComponent
+        if name.hasSuffix(".sh") { name = String(name.dropLast(3)) }
+        if name.hasSuffix("-loop") { name = String(name.dropLast(5)) }
+        let derived = "\(home)/.local/state/\(name)"
+        if fm.fileExists(atPath: derived) { return (derived, "matched the worker script's name") }
+        var candidates: [(String, Date)] = []
+        if let dirs = try? fm.contentsOfDirectory(atPath: "\(home)/.local/state") {
+            for dir in dirs {
+                let path = "\(home)/.local/state/\(dir)"
+                if fm.fileExists(atPath: path + "/loop.log") {
+                    let date = (try? fm.attributesOfItem(atPath: path + "/loop.log")[.modificationDate] as? Date) ?? .distantPast
+                    candidates.append((path, date))
+                }
+            }
+        }
+        let best = candidates.max { $0.1 < $1.1 }
+        return (best?.0, best == nil ? "no state folder found" : "found the most recently active worker state")
+    }
 }
 
 // MARK: - Shell helpers
@@ -164,8 +244,18 @@ func webBase() -> String? {
 }
 
 func openOnGitHub(commit: String) {
+    if let pane = GitHubPane.shared {
+        pane.show(path: "/commit/" + commit)
+        pane.onNavigate?(5)
+        return
+    }
     guard let base = webBase(), let url = URL(string: base + "/commit/" + commit) else { return }
     NSWorkspace.shared.open(url)
+}
+
+func startWorker() {
+    guard !Prefs.worker.isEmpty else { return }
+    bash("mkdir -p \"\(Prefs.stateDir)\"; rm -f \"\(Prefs.stopFile)\"; nohup caffeinate -is /bin/bash \"\(Prefs.worker)\" >/dev/null 2>&1 &")
 }
 
 // MARK: - Small views
@@ -615,7 +705,7 @@ final class OverviewPane: Pane {
     }
 
     @objc func startWork() {
-        bash("mkdir -p \"\(Prefs.stateDir)\"; rm -f \"\(Prefs.stopFile)\"; nohup caffeinate -is /bin/bash \"\(Prefs.worker)\" >/dev/null 2>&1 &")
+        startWorker()
         refresh()
     }
     @objc func pauseWork() {
@@ -736,6 +826,13 @@ final class ActivityPane: Pane {
         feed.textColor = NSColor(calibratedWhite: 0.9, alpha: 1)
         feed.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
         feed.textContainerInset = NSSize(width: 10, height: 10)
+        feed.frame = NSRect(x: 0, y: 0, width: 800, height: 400)
+        feed.isVerticallyResizable = true
+        feed.isHorizontallyResizable = false
+        feed.autoresizingMask = [.width]
+        feed.textContainer?.widthTracksTextView = true
+        feed.minSize = NSSize(width: 0, height: 0)
+        feed.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         let scroll = NSScrollView()
         scroll.translatesAutoresizingMaskIntoConstraints = false
         scroll.hasVerticalScroller = true
@@ -752,7 +849,10 @@ final class ActivityPane: Pane {
 
     override func refresh() {
         let result = run("/usr/bin/tail", ["-n", "220", Prefs.logFile])
-        let lines = result.output.split(separator: "\n").suffix(120).map { String($0.prefix(200)) }
+        var lines = result.output.split(separator: "\n").suffix(120).map { String($0.prefix(200)) }
+        if lines.isEmpty {
+            lines = ["Waiting for the first log line…"]
+        }
         feed.string = lines.joined(separator: "\n")
         let stamp = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
         updatedLabel.stringValue = "updated \(stamp)"
@@ -762,8 +862,10 @@ final class ActivityPane: Pane {
 
 final class IncrementsPane: Pane {
     let table = NSTableView()
+    let detail = NSTextView()
     var rows: [(String, String, String)] = []
     var lastCount = 0
+    var currentCommit = ""
 
     override func loadView() {
         let root = NSView()
@@ -780,8 +882,15 @@ final class IncrementsPane: Pane {
             stack.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             stack.bottomAnchor.constraint(equalTo: root.bottomAnchor),
         ])
-        stack.addArrangedSubview(makeHeader("Increments", "Committed work, newest first"))
-        for (title, width) in [("Hash", CGFloat(70)), ("Increment", CGFloat(520)), ("When", CGFloat(140))] {
+        stack.addArrangedSubview(makeHeader("Increments", "Click a commit to inspect it — double-click opens GitHub"))
+
+        let columns = NSStackView()
+        columns.orientation = .horizontal
+        columns.spacing = 14
+        columns.alignment = .top
+        columns.setContentHuggingPriority(.defaultLow, for: .vertical)
+
+        for (title, width) in [("Hash", CGFloat(64)), ("Increment", CGFloat(300)), ("When", CGFloat(110))] {
             let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(title))
             column.title = title
             column.width = width
@@ -791,26 +900,87 @@ final class IncrementsPane: Pane {
         table.delegate = self
         table.usesAlternatingRowBackgroundColors = true
         table.style = .inset
-        let scroll = NSScrollView()
-        scroll.translatesAutoresizingMaskIntoConstraints = false
-        scroll.hasVerticalScroller = true
-        scroll.documentView = table
-        scroll.wantsLayer = true
-        scroll.layer?.cornerRadius = 12
-        scroll.layer?.borderWidth = 1
-        scroll.layer?.borderColor = NSColor(calibratedWhite: 0.24, alpha: 1).cgColor
-        stack.addArrangedSubview(scroll)
-        scroll.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52).isActive = true
         table.target = self
         table.doubleAction = #selector(openCommit)
-        table.toolTip = "Double-click a row to open the commit on GitHub"
-        addBanner(stack, key: "increments", text: "Every committed work increment, newest first. Double-click a row to open it on GitHub.")
+        table.toolTip = "Click to inspect · double-click to open on GitHub"
+        let listScroll = NSScrollView()
+        listScroll.translatesAutoresizingMaskIntoConstraints = false
+        listScroll.hasVerticalScroller = true
+        listScroll.documentView = table
+        listScroll.wantsLayer = true
+        listScroll.layer?.cornerRadius = 12
+        listScroll.layer?.borderWidth = 1
+        listScroll.layer?.borderColor = NSColor(calibratedWhite: 0.24, alpha: 1).cgColor
+        listScroll.widthAnchor.constraint(equalToConstant: 500).isActive = true
+
+        detail.isEditable = false
+        detail.isRichText = true
+        detail.drawsBackground = true
+        detail.backgroundColor = NSColor(calibratedWhite: 0.10, alpha: 1)
+        detail.textContainerInset = NSSize(width: 12, height: 12)
+        detail.frame = NSRect(x: 0, y: 0, width: 600, height: 400)
+        detail.isVerticallyResizable = true
+        detail.isHorizontallyResizable = false
+        detail.autoresizingMask = [.width]
+        detail.textContainer?.widthTracksTextView = true
+        detail.minSize = NSSize(width: 0, height: 0)
+        detail.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        let detailScroll = NSScrollView()
+        detailScroll.translatesAutoresizingMaskIntoConstraints = false
+        detailScroll.hasVerticalScroller = true
+        detailScroll.documentView = detail
+        detailScroll.wantsLayer = true
+        detailScroll.layer?.cornerRadius = 12
+        detailScroll.layer?.borderWidth = 1
+        detailScroll.layer?.borderColor = NSColor(calibratedWhite: 0.24, alpha: 1).cgColor
+
+        columns.addArrangedSubview(listScroll)
+        columns.addArrangedSubview(detailScroll)
+        stack.addArrangedSubview(columns)
+        NSLayoutConstraint.activate([
+            columns.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52),
+            listScroll.heightAnchor.constraint(equalTo: columns.heightAnchor),
+            detailScroll.heightAnchor.constraint(equalTo: columns.heightAnchor),
+        ])
+        addBanner(stack, key: "increments", text: "Every committed work increment, newest first. Click a row to see the message, the changed files and the full diff right here; double-click to open it in the embedded GitHub pane.")
         view = root
     }
 
     @objc func openCommit() {
         let row = table.selectedRow
         if row >= 0 && row < rows.count { openOnGitHub(commit: rows[row].0) }
+    }
+
+    func loadDetail() {
+        let row = table.selectedRow
+        guard row >= 0, row < rows.count else { return }
+        let hash = rows[row].0
+        if hash == currentCommit { return }
+        currentCommit = hash
+        let result = run("/usr/bin/git", ["-C", Prefs.project, "show", "--stat", "--patch",
+                                          "--format=commit %h%nAuthor: %an <%ae>%nDate:   %ad%n%n%s%n%n%b", hash])
+        var text = result.output
+        if text.count > 160000 { text = String(text.prefix(160000)) + "\n… output truncated …\n" }
+        let attributed = NSMutableAttributedString()
+        let base = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
+        let strong = NSFont.monospacedSystemFont(ofSize: 11, weight: .semibold)
+        for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
+            let value = String(line) + "\n"
+            var color = NSColor(calibratedWhite: 0.85, alpha: 1)
+            var font = base
+            if value.hasPrefix("+") && !value.hasPrefix("+++") {
+                color = .systemGreen
+            } else if value.hasPrefix("-") && !value.hasPrefix("---") {
+                color = .systemRed
+            } else if value.hasPrefix("@@") {
+                color = .systemTeal
+            } else if value.hasPrefix("commit ") || value.hasPrefix("Author:") || value.hasPrefix("Date:") || value.hasPrefix("diff --git") {
+                font = strong
+            }
+            attributed.append(NSAttributedString(string: value, attributes: [.foregroundColor: color, .font: font]))
+        }
+        detail.textStorage?.setAttributedString(attributed)
+        detail.scrollToBeginningOfDocument(nil)
     }
 
     override func refresh() {
@@ -825,6 +995,10 @@ final class IncrementsPane: Pane {
             table.reloadData()
         }
         lastCount = rows.count
+        if table.selectedRow < 0 && !rows.isEmpty {
+            table.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
+            loadDetail()
+        }
     }
 }
 
@@ -983,16 +1157,13 @@ final class LivePane: Pane, WKNavigationDelegate {
         showMessage("Connecting to the OpenCode service…")
         DispatchQueue.global().async {
             let result = run("\(home)/.opencode/bin/opencode", ["pair"], cwd: Prefs.project)
-            let urlString = capture("URLs\\s+(http\\S+)", in: result.output)
-            let username = capture("Username\\s+(\\S+)", in: result.output) ?? "opencode"
-            let password = capture("Password\\s+(\\S+)", in: result.output)
+            let urlString = capture("(http://\\S+)", in: result.output)
             DispatchQueue.main.async {
                 guard result.code == 0, let urlString, let url = URL(string: urlString) else {
                     self.stateLabel.stringValue = "Service unavailable"
                     self.showMessage("Could not create a live link.<br><br>Make sure the OpenCode service is running, then press Reconnect.")
                     return
                 }
-                self.credential = URLCredential(user: username, password: password ?? "", persistence: .none)
                 self.stateLabel.stringValue = "Connected — live"
                 self.web.load(URLRequest(url: url))
             }
@@ -1022,7 +1193,12 @@ final class SettingsPane: Pane {
     let projectField = NSTextField()
     let workerField = NSTextField()
     let stateField = NSTextField()
+    let projectSource = headerLabel("", size: 10, color: .tertiaryLabelColor)
+    let workerSource = headerLabel("", size: 10, color: .tertiaryLabelColor)
+    let stateSource = headerLabel("", size: 10, color: .tertiaryLabelColor)
     let infoLabel = headerLabel("", size: 11, color: .secondaryLabelColor)
+    let autoStartBox = NSButton(checkboxWithTitle: "Start work automatically when AgentWatcher opens",
+                                target: nil, action: nil)
 
     override func loadView() {
         let root = NSView()
@@ -1038,37 +1214,189 @@ final class SettingsPane: Pane {
             stack.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             stack.trailingAnchor.constraint(equalTo: root.trailingAnchor),
         ])
-        stack.addArrangedSubview(makeHeader("Settings", "Where AgentWatcher looks and what it starts"))
-        for (title, field) in [("Project folder", projectField), ("Worker script", workerField), ("State folder", stateField)] {
+        stack.addArrangedSubview(makeHeader("Settings", "Detected automatically — edit any field to override"))
+        let fields: [(String, NSTextField, NSTextField)] = [
+            ("Project folder", projectField, projectSource),
+            ("Worker script", workerField, workerSource),
+            ("State folder", stateField, stateSource),
+        ]
+        for (title, field, source) in fields {
             stack.addArrangedSubview(headerLabel(title, size: 12, weight: .semibold))
             field.translatesAutoresizingMaskIntoConstraints = false
             field.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+            field.target = self
+            field.action = #selector(fieldChanged)
+            field.toolTip = "Changes apply immediately"
             stack.addArrangedSubview(field)
             field.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52).isActive = true
+            stack.addArrangedSubview(source)
         }
-        let save = NSButton(title: "Save", target: self, action: #selector(saveSettings))
-        save.bezelStyle = .rounded
-        stack.addArrangedSubview(save)
+        autoStartBox.target = self
+        autoStartBox.action = #selector(autoStartChanged)
+        stack.addArrangedSubview(autoStartBox)
+        let redetect = NSButton(title: "Re-detect everything", target: self, action: #selector(redetect))
+        redetect.bezelStyle = .rounded
+        redetect.toolTip = "Forget overrides and detect the project, worker and state again"
+        stack.addArrangedSubview(redetect)
         stack.addArrangedSubview(infoLabel)
-        addBanner(stack, key: "settings", text: "Point AgentWatcher at your project, the worker script it should run, and where the worker keeps its state. No project files are modified.")
+        addBanner(stack, key: "settings", text: "Everything here is detected automatically: AgentWatcher finds a git project with agent instructions, an agent loop script, and the worker's state folder. Edit a field to override; Re-detect forgets the overrides. No project files are modified.")
         view = root
     }
 
     override func refresh() {
-        if projectField.stringValue.isEmpty {
-            projectField.stringValue = Prefs.project
-            workerField.stringValue = Prefs.worker
-            stateField.stringValue = Prefs.stateDir
-        }
+        if projectField.currentEditor() == nil { projectField.stringValue = Prefs.project }
+        if workerField.currentEditor() == nil { workerField.stringValue = Prefs.worker }
+        if stateField.currentEditor() == nil { stateField.stringValue = Prefs.stateDir }
+        projectSource.stringValue = "auto: " + AutoDetect.project().source
+        workerSource.stringValue = "auto: " + AutoDetect.worker().source
+        stateSource.stringValue = "auto: " + AutoDetect.state(forWorker: Prefs.worker).source
+        autoStartBox.state = Prefs.autoStart ? .on : .off
         let logExists = FileManager.default.fileExists(atPath: Prefs.logFile)
         infoLabel.stringValue = logExists ? "Log found: \(Prefs.logFile)" : "No log yet at \(Prefs.logFile)"
     }
 
-    @objc func saveSettings() {
+    @objc func fieldChanged() {
         if !projectField.stringValue.isEmpty { Prefs.project = projectField.stringValue }
         Prefs.worker = workerField.stringValue
         if !stateField.stringValue.isEmpty { Prefs.stateDir = stateField.stringValue }
         refresh()
+    }
+
+    @objc func autoStartChanged() {
+        Prefs.autoStart = autoStartBox.state == .on
+    }
+
+    @objc func redetect() {
+        Prefs.defaults.removeObject(forKey: "project")
+        Prefs.defaults.removeObject(forKey: "worker")
+        Prefs.defaults.removeObject(forKey: "state")
+        refresh()
+    }
+}
+
+
+final class GitHubPane: Pane, WKNavigationDelegate {
+    static weak var shared: GitHubPane?
+    let web = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
+    let stateLabel = headerLabel("", size: 11, color: .secondaryLabelColor)
+    let picker = NSSegmentedControl(labels: ["Code", "Commits", "PRs", "Issues", "Actions"],
+                                    trackingMode: .selectOne, target: nil, action: nil)
+    var base: String?
+    var loaded = false
+
+    override init(nibName nibNameOrNil: NSNib.Name?, bundle nibBundleOrNil: Bundle?) {
+        super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
+        GitHubPane.shared = self
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func loadView() {
+        let root = NSView()
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 12
+        stack.edgeInsets = NSEdgeInsets(top: 22, left: 26, bottom: 22, right: 26)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: root.topAnchor),
+            stack.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            stack.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+        ])
+        stack.addArrangedSubview(makeHeader("GitHub", "The repository, embedded — no browser needed"))
+        let controls = NSStackView()
+        controls.orientation = .horizontal
+        controls.spacing = 8
+        let back = NSButton(title: "", target: self, action: #selector(goBack))
+        back.image = NSImage(systemSymbolName: "chevron.left", accessibilityDescription: "Back")
+        back.bezelStyle = .rounded
+        let forward = NSButton(title: "", target: self, action: #selector(goForward))
+        forward.image = NSImage(systemSymbolName: "chevron.right", accessibilityDescription: "Forward")
+        forward.bezelStyle = .rounded
+        let reload = NSButton(title: "", target: self, action: #selector(reloadPage))
+        reload.image = NSImage(systemSymbolName: "arrow.clockwise", accessibilityDescription: "Reload")
+        reload.bezelStyle = .rounded
+        picker.selectedSegment = 1
+        picker.target = self
+        picker.action = #selector(segmentChanged)
+        let openBrowser = NSButton(title: "Open in Browser", target: self, action: #selector(openInBrowser))
+        openBrowser.bezelStyle = .rounded
+        openBrowser.toolTip = "Open the current page in your default browser"
+        let spacer = NSView()
+        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        controls.addArrangedSubview(back)
+        controls.addArrangedSubview(forward)
+        controls.addArrangedSubview(reload)
+        controls.addArrangedSubview(picker)
+        controls.addArrangedSubview(spacer)
+        controls.addArrangedSubview(stateLabel)
+        controls.addArrangedSubview(openBrowser)
+        stack.addArrangedSubview(controls)
+        web.navigationDelegate = self
+        web.translatesAutoresizingMaskIntoConstraints = false
+        stack.addArrangedSubview(web)
+        web.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52).isActive = true
+        addBanner(stack, key: "github", text: "Your project's GitHub, live inside the app: code, commits, pull requests, issues and actions. Commits you double-click elsewhere open here; use Open in Browser to leave the app.")
+        view = root
+    }
+
+    func url(for segment: Int) -> String? {
+        guard let base else { return nil }
+        switch segment {
+        case 0: return base
+        case 1: return base + "/commits"
+        case 2: return base + "/pulls"
+        case 3: return base + "/issues"
+        default: return base + "/actions"
+        }
+    }
+
+    func show(path: String) {
+        if base == nil { base = webBase() }
+        loaded = true
+        guard let base, let url = URL(string: base + path) else { return }
+        picker.selectedSegment = -1
+        stateLabel.stringValue = "embedded · \(base)"
+        web.load(URLRequest(url: url))
+    }
+
+    override func refresh() {
+        if base == nil { base = webBase() }
+        guard !loaded else { return }
+        loaded = true
+        if let urlString = url(for: picker.selectedSegment), let url = URL(string: urlString) {
+            stateLabel.stringValue = "embedded · \(base ?? "")"
+            web.load(URLRequest(url: url))
+        } else {
+            stateLabel.stringValue = "no repository remote found"
+            showMessage("No GitHub remote found in this project's git configuration.")
+        }
+    }
+
+    @objc func segmentChanged() {
+        if let urlString = url(for: picker.selectedSegment), let url = URL(string: urlString) {
+            web.load(URLRequest(url: url))
+        }
+    }
+    @objc func goBack() { web.goBack() }
+    @objc func goForward() { web.goForward() }
+    @objc func reloadPage() { web.reload() }
+    @objc func openInBrowser() {
+        if let url = web.url { NSWorkspace.shared.open(url) }
+    }
+
+    func showMessage(_ message: String) {
+        let html = """
+        <html><body style="font-family:-apple-system;background:#16181c;color:#e6e6e6;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
+        <div style="text-align:center;font-size:15px;max-width:520px">\(message)</div></body></html>
+        """
+        web.loadHTMLString(html, baseURL: nil)
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        if let url = webView.url { stateLabel.stringValue = "embedded · \(url.host ?? "")" }
     }
 }
 
@@ -1095,12 +1423,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Section(title: "Increments", symbol: "checklist", tint: .systemGreen) { IncrementsPane() },
         Section(title: "Sessions", symbol: "bubble.left.and.bubble.right", tint: .systemPurple) { SessionsPane() },
         Section(title: "Live Sessions", symbol: "globe", tint: .systemOrange) { LivePane() },
+        Section(title: "GitHub", symbol: "arrow.triangle.branch", tint: .systemIndigo) { GitHubPane(nibName: nil, bundle: nil) },
         Section(title: "Settings", symbol: "gearshape", tint: .systemGray) { SettingsPane() },
     ]
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMenu()
+        panes = sections.map { $0.make() }
         buildWindow()
+        if Prefs.autoStart && !Prefs.worker.isEmpty && !AgentStatus.current().running {
+            startWorker()
+        }
         refreshCurrent()
         let timer = Timer(timeInterval: 2.5, repeats: true) { [weak self] _ in self?.refreshCurrent() }
         RunLoop.main.add(timer, forMode: .common)
@@ -1171,10 +1504,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func showPane(_ index: Int) {
         current = index
         content.subviews.forEach { $0.removeFromSuperview() }
-        let pane = panes.count > index ? panes[index] : sections[index].make()
-        if panes.count <= index {
-            panes.append(pane)
-        }
+        let pane = panes[index]
         pane.onNavigate = { [weak self] index in
             guard let self else { return }
             self.sidebar.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
