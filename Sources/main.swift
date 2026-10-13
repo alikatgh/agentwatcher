@@ -2655,7 +2655,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var timer: Timer?
     var sidebarScroll: NSScrollView!
     var sidebarWidth: NSLayoutConstraint!
-    var railButtons: [NSButton] = []
+    var sidebarFooter: NSStackView!
+    var sidebarSeparator: NSBox!
     var statusItem: NSStatusItem!
     var navHistory: [Int] = []
     var navIndex = -1
@@ -2699,6 +2700,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func toggleSidebar() {
         Prefs.sidebarVisible.toggle()
         sidebarScroll.isHidden = !Prefs.sidebarVisible
+        sidebarFooter.isHidden = !Prefs.sidebarVisible
+        sidebarSeparator.isHidden = !Prefs.sidebarVisible
         sidebarWidth.constant = Prefs.sidebarVisible ? 224 : 0
     }
 
@@ -2707,10 +2710,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pushHistory(index)
         sidebar.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
         showPane(index)
-    }
-
-    @objc func railClicked(_ sender: NSButton) {
-        selectSection(sender.tag)
     }
 
     @objc func menuSelect(_ sender: NSMenuItem) {
@@ -2871,61 +2870,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         root.addSubview(sidebarScroll)
         root.addSubview(content)
 
-        // Icon rail: one-click jumps between views (the reference's left strip).
-        let rail = NSStackView()
-        rail.orientation = .vertical
-        rail.spacing = 6
-        rail.edgeInsets = NSEdgeInsets(top: 12, left: 0, bottom: 12, right: 0)
-        rail.translatesAutoresizingMaskIntoConstraints = false
-        rail.wantsLayer = true
-        rail.layer?.backgroundColor = Theme.deep.cgColor
-        railButtons = []
-        for (index, section) in sections.enumerated() {
-            let button = NSButton(title: "", target: self, action: #selector(railClicked(_:)))
-            button.image = NSImage(systemSymbolName: section.symbol, accessibilityDescription: section.title)
-            button.imagePosition = .imageOnly
-            button.isBordered = false
-            button.contentTintColor = section.tint
-            button.tag = index
-            button.toolTip = "\(section.title) (⌘\(index + 1))"
-            button.translatesAutoresizingMaskIntoConstraints = false
-            button.wantsLayer = true
-            button.layer?.cornerRadius = 8
-            NSLayoutConstraint.activate([
-                button.widthAnchor.constraint(equalToConstant: 30),
-                button.heightAnchor.constraint(equalToConstant: 30),
-            ])
-            rail.addArrangedSubview(button)
-            if section.title == "Settings" {
-                let separator = NSBox()
-                separator.boxType = .separator
-                separator.translatesAutoresizingMaskIntoConstraints = false
-                separator.widthAnchor.constraint(equalToConstant: 26).isActive = true
-                rail.addArrangedSubview(separator)
-            }
-            railButtons.append(button)
-        }
+        // One sidebar: the section list carries the icons; the About avatar sits in its footer.
+        sidebarFooter = NSStackView()
+        sidebarFooter.orientation = .horizontal
+        sidebarFooter.spacing = 8
+        sidebarFooter.edgeInsets = NSEdgeInsets(top: 8, left: 14, bottom: 10, right: 12)
+        sidebarFooter.translatesAutoresizingMaskIntoConstraints = false
         let avatar = NSButton(title: "", target: self, action: #selector(showAbout))
         avatar.image = NSApp.applicationIconImage
-        avatar.image?.size = NSSize(width: 26, height: 26)
+        avatar.image?.size = NSSize(width: 24, height: 24)
         avatar.imagePosition = .imageOnly
         avatar.isBordered = false
         avatar.toolTip = "About AgentWatcher"
         avatar.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            avatar.widthAnchor.constraint(equalToConstant: 32),
-            avatar.heightAnchor.constraint(equalToConstant: 32),
+            avatar.widthAnchor.constraint(equalToConstant: 28),
+            avatar.heightAnchor.constraint(equalToConstant: 28),
         ])
-        rail.addArrangedSubview(avatar)
-        root.addSubview(rail)
+        sidebarFooter.addArrangedSubview(avatar)
+        sidebarFooter.addArrangedSubview(headerLabel("AgentWatcher 0.1.0", size: 10, color: Theme.textFaint))
+        let footerSpacer = NSView()
+        footerSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        sidebarFooter.addArrangedSubview(footerSpacer)
+        sidebarSeparator = NSBox()
+        sidebarSeparator.boxType = .separator
+        sidebarSeparator.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(sidebarFooter)
+        root.addSubview(sidebarSeparator)
         NSLayoutConstraint.activate([
-            rail.topAnchor.constraint(equalTo: root.topAnchor),
-            rail.bottomAnchor.constraint(equalTo: root.bottomAnchor),
-            rail.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            rail.widthAnchor.constraint(equalToConstant: 46),
+            sidebarFooter.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            sidebarFooter.trailingAnchor.constraint(equalTo: sidebarScroll.trailingAnchor),
+            sidebarFooter.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            sidebarSeparator.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            sidebarSeparator.trailingAnchor.constraint(equalTo: sidebarScroll.trailingAnchor),
+            sidebarSeparator.bottomAnchor.constraint(equalTo: sidebarFooter.topAnchor),
             sidebarScroll.topAnchor.constraint(equalTo: root.topAnchor),
-            sidebarScroll.bottomAnchor.constraint(equalTo: root.bottomAnchor),
-            sidebarScroll.leadingAnchor.constraint(equalTo: rail.trailingAnchor),
+            sidebarScroll.bottomAnchor.constraint(equalTo: sidebarSeparator.topAnchor),
+            sidebarScroll.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             content.topAnchor.constraint(equalTo: root.topAnchor),
             content.bottomAnchor.constraint(equalTo: root.bottomAnchor),
             content.leadingAnchor.constraint(equalTo: sidebarScroll.trailingAnchor),
@@ -2933,6 +2914,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             sidebarWidth,
         ])
         sidebarScroll.isHidden = !Prefs.sidebarVisible
+        sidebarFooter.isHidden = !Prefs.sidebarVisible
+        sidebarSeparator.isHidden = !Prefs.sidebarVisible
         sidebarWidth.constant = Prefs.sidebarVisible ? 224 : 0
         window.contentView = root
         NSLog("AgentWatcher: content set")
@@ -2953,9 +2936,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func showPane(_ index: Int) {
         current = index
         content.subviews.forEach { $0.removeFromSuperview() }
-        for (buttonIndex, button) in railButtons.enumerated() {
-            button.layer?.backgroundColor = (buttonIndex == index ? Theme.layer02.cgColor : NSColor.clear.cgColor)
-        }
         (titleItem?.view as? NSTextField)?.stringValue = sections[index].title
         let pane = panes[index]
         pane.onNavigate = { [weak self] index in
