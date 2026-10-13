@@ -274,29 +274,6 @@ func commitEvents(since: String) -> [(date: Date, subject: String, hash: String)
     return items
 }
 
-func webBase() -> String? {
-    let url = run("/usr/bin/git", ["-C", Prefs.project, "remote", "get-url", "origin"]).output
-        .trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !url.isEmpty else { return nil }
-    var base = url
-    if base.hasPrefix("git@") {
-        base = base.replacingOccurrences(of: "git@", with: "https://")
-        base = base.replacingOccurrences(of: ":", with: "/")
-    }
-    if base.hasSuffix(".git") { base = String(base.dropLast(4)) }
-    return base.hasPrefix("http") ? base : nil
-}
-
-func openOnGitHub(commit: String) {
-    if let pane = GitHubPane.shared {
-        pane.show(path: "/commit/" + commit)
-        pane.onNavigate?(6)
-        return
-    }
-    guard let base = webBase(), let url = URL(string: base + "/commit/" + commit) else { return }
-    NSWorkspace.shared.open(url)
-}
-
 func startWorker() {
     guard !Prefs.worker.isEmpty else { return }
     bash("mkdir -p \"\(Prefs.stateDir)\"; rm -f \"\(Prefs.stopFile)\"; nohup caffeinate -is /bin/bash \"\(Prefs.worker)\" >/dev/null 2>&1 &")
@@ -315,6 +292,31 @@ func diffStyledText(_ text: String, font: NSFont) -> NSAttributedString {
             color = Theme.primary
         }
         attributed.append(NSAttributedString(string: value, attributes: [.foregroundColor: color, .font: font]))
+    }
+    return attributed
+}
+
+func numberedText(_ text: String, size: CGFloat) -> NSAttributedString {
+    let font = Theme.codeFont(size)
+    let numberAttributes: [NSAttributedString.Key: Any] = [
+        .foregroundColor: Theme.textFaint,
+        .font: font,
+    ]
+    let attributed = NSMutableAttributedString()
+    var index = 1
+    for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
+        let value = String(line)
+        var color = Theme.textBase
+        if (value.hasPrefix("+ ") || value.hasPrefix("+")) && !value.hasPrefix("+++") {
+            color = Theme.success
+        } else if (value.hasPrefix("- ") || value.hasPrefix("-")) && !value.hasPrefix("---") {
+            color = Theme.danger
+        } else if value.hasPrefix("@@") {
+            color = Theme.primary
+        }
+        attributed.append(NSAttributedString(string: String(format: "%5d │ ", index), attributes: numberAttributes))
+        attributed.append(NSAttributedString(string: value + "\n", attributes: [.foregroundColor: color, .font: font]))
+        index += 1
     }
     return attributed
 }
@@ -758,7 +760,7 @@ final class OverviewPane: Pane {
     }
 
     @objc func openRecent(_ sender: NSButton) {
-        if let commit = sender.identifier?.rawValue { openOnGitHub(commit: commit) }
+        onNavigate?(3)
     }
 
     @objc func openFolder() {
@@ -859,14 +861,30 @@ final class ActivityPane: Pane {
         var date: Date
         var status: Bool?
         var detail: String
+        var sessionID: String
     }
 
-    let scroll = NSScrollView()
+    let listScroll = NSScrollView()
     let listStack = NSStackView()
     let summaryLabel = headerLabel("", size: 12, color: Theme.textMuted)
-    var expanded = Set<String>()
-    var visibleCards = 12
+    let tabPicker = NSSegmentedControl(labels: ["Output", "Context"], trackingMode: .selectOne, target: nil, action: nil)
+    let rightTitle = headerLabel("", size: 13, weight: .semibold)
+    let rightStats = headerLabel("", size: 11, color: Theme.textMuted)
+    let filterField = NSSearchField()
+    let outputView = NSTextView()
+    let contextStack = NSStackView()
+    let contextScroll = NSScrollView()
+    var outputContainer = NSView()
+    var contextContainer = NSView()
+
+    var cards: [RunCard] = []
+    var selectedKey = ""
+    var visibleCards = 20
     var lastSignature = ""
+    var filter = ""
+    var expandedMessages = Set<String>()
+    var sessionCache: [String: (info: [String: Any], messages: [[String: Any]])] = [:]
+    var contextLoading = false
 
     override func loadView() {
         let root = NSView()
@@ -883,40 +901,139 @@ final class ActivityPane: Pane {
             stack.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             stack.bottomAnchor.constraint(equalTo: root.bottomAnchor),
         ])
-        stack.addArrangedSubview(makeHeader("Live Activity", "Every agent run, packaged — expand for the full output"))
+        stack.addArrangedSubview(makeHeader("Live Activity", "Every agent run — output and context in the right sidebar"))
         stack.addArrangedSubview(summaryLabel)
+
+        let columns = NSStackView()
+        columns.orientation = .horizontal
+        columns.spacing = 14
+        columns.alignment = .top
+        columns.setContentHuggingPriority(.defaultLow, for: .vertical)
 
         listStack.orientation = .vertical
         listStack.alignment = .leading
-        listStack.spacing = 10
+        listStack.spacing = 8
         listStack.edgeInsets = NSEdgeInsets(top: 6, left: 6, bottom: 14, right: 6)
         listStack.translatesAutoresizingMaskIntoConstraints = false
-        let document = NSView()
-        document.translatesAutoresizingMaskIntoConstraints = false
-        document.addSubview(listStack)
+        let listDocument = NSView()
+        listDocument.translatesAutoresizingMaskIntoConstraints = false
+        listDocument.addSubview(listStack)
         NSLayoutConstraint.activate([
-            listStack.topAnchor.constraint(equalTo: document.topAnchor),
-            listStack.bottomAnchor.constraint(equalTo: document.bottomAnchor),
-            listStack.leadingAnchor.constraint(equalTo: document.leadingAnchor),
-            listStack.trailingAnchor.constraint(equalTo: document.trailingAnchor),
-            document.widthAnchor.constraint(equalToConstant: 820),
+            listStack.topAnchor.constraint(equalTo: listDocument.topAnchor),
+            listStack.bottomAnchor.constraint(equalTo: listDocument.bottomAnchor),
+            listStack.leadingAnchor.constraint(equalTo: listDocument.leadingAnchor),
+            listStack.trailingAnchor.constraint(equalTo: listDocument.trailingAnchor),
         ])
-        scroll.translatesAutoresizingMaskIntoConstraints = false
-        scroll.hasVerticalScroller = true
-        scroll.documentView = document
-        scroll.drawsBackground = false
-        scroll.wantsLayer = true
-        scroll.layer?.cornerRadius = 12
-        scroll.layer?.borderWidth = 1
-        scroll.layer?.borderColor = Theme.border.cgColor
-        stack.addArrangedSubview(scroll)
+        listScroll.translatesAutoresizingMaskIntoConstraints = false
+        listScroll.hasVerticalScroller = true
+        listScroll.documentView = listDocument
+        listScroll.drawsBackground = false
+        listScroll.wantsLayer = true
+        listScroll.layer?.cornerRadius = 12
+        listScroll.layer?.borderWidth = 1
+        listScroll.layer?.borderColor = Theme.border.cgColor
+        listScroll.widthAnchor.constraint(equalToConstant: 380).isActive = true
+
+        let right = CardView()
+        right.translatesAutoresizingMaskIntoConstraints = false
+        let rightStack = NSStackView()
+        rightStack.orientation = .vertical
+        rightStack.alignment = .leading
+        rightStack.spacing = 10
+        rightStack.edgeInsets = NSEdgeInsets(top: 12, left: 14, bottom: 12, right: 14)
+        rightStack.translatesAutoresizingMaskIntoConstraints = false
+        right.addSubview(rightStack)
         NSLayoutConstraint.activate([
-            scroll.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52),
-            scroll.bottomAnchor.constraint(equalTo: stack.bottomAnchor, constant: -22),
+            rightStack.topAnchor.constraint(equalTo: right.topAnchor),
+            rightStack.bottomAnchor.constraint(equalTo: right.bottomAnchor),
+            rightStack.leadingAnchor.constraint(equalTo: right.leadingAnchor),
+            rightStack.trailingAnchor.constraint(equalTo: right.trailingAnchor),
         ])
-        addBanner(stack, key: "activity", text: "The worker's log, packaged: one card per agent run, a green check for successes, expand any card for the full captured output.")
+        let tabRow = NSStackView()
+        tabRow.orientation = .horizontal
+        tabRow.spacing = 10
+        tabPicker.selectedSegment = 0
+        tabPicker.target = self
+        tabPicker.action = #selector(tabChanged)
+        tabRow.addArrangedSubview(tabPicker)
+        tabRow.addArrangedSubview(rightTitle)
+        tabRow.addArrangedSubview(rightStats)
+        rightStack.addArrangedSubview(tabRow)
+
+        filterField.placeholderString = "Filter output"
+        filterField.translatesAutoresizingMaskIntoConstraints = false
+        filterField.target = self
+        filterField.action = #selector(filterChanged)
+        filterField.sendsSearchStringImmediately = true
+        rightStack.addArrangedSubview(filterField)
+        filterField.widthAnchor.constraint(equalTo: rightStack.widthAnchor, constant: -28).isActive = true
+
+        outputView.isEditable = false
+        outputView.isRichText = true
+        outputView.drawsBackground = true
+        outputView.backgroundColor = Theme.deep
+        outputView.textContainerInset = NSSize(width: 10, height: 10)
+        outputView.frame = NSRect(x: 0, y: 0, width: 700, height: 400)
+        outputView.isVerticallyResizable = true
+        outputView.isHorizontallyResizable = false
+        outputView.autoresizingMask = [.width]
+        outputView.textContainer?.widthTracksTextView = true
+        outputView.minSize = NSSize(width: 0, height: 0)
+        outputView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        let outputScroll = NSScrollView()
+        outputScroll.translatesAutoresizingMaskIntoConstraints = false
+        outputScroll.hasVerticalScroller = true
+        outputScroll.documentView = outputView
+        outputScroll.wantsLayer = true
+        outputScroll.layer?.cornerRadius = 8
+        outputScroll.layer?.borderWidth = 1
+        outputScroll.layer?.borderColor = Theme.borderMuted.cgColor
+        outputContainer = outputScroll
+
+        contextStack.orientation = .vertical
+        contextStack.alignment = .leading
+        contextStack.spacing = 8
+        contextStack.edgeInsets = NSEdgeInsets(top: 8, left: 8, bottom: 12, right: 8)
+        contextStack.translatesAutoresizingMaskIntoConstraints = false
+        let contextDocument = NSView()
+        contextDocument.translatesAutoresizingMaskIntoConstraints = false
+        contextDocument.addSubview(contextStack)
+        NSLayoutConstraint.activate([
+            contextStack.topAnchor.constraint(equalTo: contextDocument.topAnchor),
+            contextStack.bottomAnchor.constraint(equalTo: contextDocument.bottomAnchor),
+            contextStack.leadingAnchor.constraint(equalTo: contextDocument.leadingAnchor),
+            contextStack.trailingAnchor.constraint(equalTo: contextDocument.trailingAnchor),
+        ])
+        contextScroll.translatesAutoresizingMaskIntoConstraints = false
+        contextScroll.hasVerticalScroller = true
+        contextScroll.documentView = contextDocument
+        contextScroll.drawsBackground = false
+        contextScroll.wantsLayer = true
+        contextScroll.layer?.cornerRadius = 8
+        contextScroll.layer?.borderWidth = 1
+        contextScroll.layer?.borderColor = Theme.borderMuted.cgColor
+        contextContainer = contextScroll
+
+        rightStack.addArrangedSubview(outputScroll)
+        rightStack.addArrangedSubview(contextScroll)
+        for container in [outputScroll, contextScroll] {
+            container.widthAnchor.constraint(equalTo: rightStack.widthAnchor, constant: -28).isActive = true
+        }
+        contextScroll.isHidden = true
+
+        columns.addArrangedSubview(listScroll)
+        columns.addArrangedSubview(right)
+        NSLayoutConstraint.activate([
+            columns.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52),
+            listScroll.heightAnchor.constraint(equalTo: columns.heightAnchor),
+            right.heightAnchor.constraint(equalTo: columns.heightAnchor),
+        ])
+        stack.addArrangedSubview(columns)
+        addBanner(stack, key: "activity", text: "Every agent run on the left; the selected run opens in the right sidebar. Output shows the full captured log with a filter; Context shows the session's message list with expandable JSON.")
         view = root
     }
+
+    // MARK: - Parsing
 
     func parseCards() -> [RunCard] {
         guard let data = FileManager.default.contents(atPath: Prefs.logFile),
@@ -957,7 +1074,7 @@ final class ActivityPane: Pane {
                 current = Event(stamp: stamp, date: date, kind: kind, title: title, ok: ok, detail: [message])
             } else if current != nil {
                 let size = current!.detail.reduce(0) { $0 + $1.count }
-                if size < 12000 {
+                if size < 20000 {
                     current!.detail.append(line)
                 } else if current!.detail.last != "… output truncated …" {
                     current!.detail.append("… output truncated …")
@@ -972,6 +1089,10 @@ final class ActivityPane: Pane {
         func finishPending() {
             guard let start = pendingStart else { return }
             var lines = start.detail + (pendingEnd?.detail ?? [])
+            var sessionID = ""
+            for line in lines where line.hasPrefix("session: ") {
+                sessionID = String(line.dropFirst("session: ".count)).trimmingCharacters(in: .whitespaces)
+            }
             lines.removeAll { $0 == "starting run" || $0.hasPrefix("run rc=") || $0.hasPrefix("session: ") }
             var detail = lines.joined(separator: "\n")
             if detail.isEmpty { detail = "No captured output for this run." }
@@ -983,7 +1104,7 @@ final class ActivityPane: Pane {
                 status = end.ok
             }
             cards.append(RunCard(key: start.stamp + "|run", title: "Agent run", subtitle: subtitle,
-                                 date: start.date, status: status, detail: detail))
+                                 date: start.date, status: status, detail: detail, sessionID: sessionID))
             pendingStart = nil
             pendingEnd = nil
         }
@@ -996,37 +1117,42 @@ final class ActivityPane: Pane {
                 if pendingStart != nil { pendingEnd = event; finishPending() }
             case "loopStart", "loopStop":
                 finishPending()
-                cards.append(RunCard(key: event.stamp + "|" + event.kind, title: event.title,
-                                     subtitle: "", date: event.date, status: nil, detail: ""))
+                cards.append(RunCard(key: event.stamp + "|" + event.kind, title: event.title, subtitle: "",
+                                     date: event.date, status: nil, detail: "", sessionID: ""))
             default:
-                cards.append(RunCard(key: event.stamp + "|note", title: event.title,
-                                     subtitle: "", date: event.date, status: nil, detail: event.detail.joined(separator: "\n")))
+                cards.append(RunCard(key: event.stamp + "|note", title: event.title, subtitle: "",
+                                     date: event.date, status: nil,
+                                     detail: event.detail.joined(separator: "\n"), sessionID: ""))
             }
         }
         finishPending()
         return cards
     }
 
-    func makeCard(_ card: RunCard) -> NSView {
-        let container = CardView()
-        container.translatesAutoresizingMaskIntoConstraints = false
-        let stack = NSStackView()
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 6
-        stack.edgeInsets = NSEdgeInsets(top: 12, left: 14, bottom: 12, right: 14)
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(stack)
-        NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: container.topAnchor),
-            stack.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-        ])
+    // MARK: - Left list
 
-        let header = NSStackView()
-        header.orientation = .horizontal
-        header.spacing = 8
+    func makeRow(_ card: RunCard) -> NSView {
+        let row = NSView()
+        row.wantsLayer = true
+        row.translatesAutoresizingMaskIntoConstraints = false
+        let selected = card.key == selectedKey
+        row.layer?.backgroundColor = (selected ? Theme.layer02 : Theme.layer01).cgColor
+        row.layer?.cornerRadius = 10
+        row.layer?.borderWidth = 1
+        row.layer?.borderColor = (selected ? Theme.borderStrong : Theme.border).cgColor
+        let inner = NSStackView()
+        inner.orientation = .horizontal
+        inner.spacing = 8
+        inner.edgeInsets = NSEdgeInsets(top: 8, left: 10, bottom: 8, right: 10)
+        inner.translatesAutoresizingMaskIntoConstraints = false
+        row.addSubview(inner)
+        NSLayoutConstraint.activate([
+            inner.topAnchor.constraint(equalTo: row.topAnchor),
+            inner.bottomAnchor.constraint(equalTo: row.bottomAnchor),
+            inner.leadingAnchor.constraint(equalTo: row.leadingAnchor),
+            inner.trailingAnchor.constraint(equalTo: row.trailingAnchor),
+        ])
+        let icon = NSImageView()
         let symbol: String
         let tint: NSColor
         if let ok = card.status, ok {
@@ -1034,122 +1160,210 @@ final class ActivityPane: Pane {
         } else if let ok = card.status, !ok {
             symbol = "xmark.circle.fill"; tint = Theme.danger
         } else if card.subtitle == "in progress" {
-            symbol = "circle.dotted"; tint = Theme.warning
+            symbol = "circle.dotted"; tint = Theme.primary
         } else {
-            symbol = "circle.fill"; tint = Theme.primary
+            symbol = "circle.fill"; tint = Theme.accent
         }
-        let icon = NSImageView()
         icon.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
         icon.contentTintColor = tint
         icon.translatesAutoresizingMaskIntoConstraints = false
-        icon.widthAnchor.constraint(equalToConstant: 16).isActive = true
-        let title = headerLabel(card.title, size: 13, weight: .semibold)
-        let time = headerLabel(DateFormatter.localizedString(from: card.date, dateStyle: .none, timeStyle: .medium),
-                                size: 11, color: Theme.textMuted)
+        icon.widthAnchor.constraint(equalToConstant: 15).isActive = true
+        let text = NSStackView()
+        text.orientation = .vertical
+        text.alignment = .leading
+        text.spacing = 1
+        text.addArrangedSubview(headerLabel(card.title, size: 12, weight: .semibold))
+        if !card.subtitle.isEmpty {
+            text.addArrangedSubview(headerLabel(card.subtitle, size: 11, color: Theme.textMuted))
+        }
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        header.addArrangedSubview(icon)
-        header.addArrangedSubview(title)
-        if !card.subtitle.isEmpty {
-            header.addArrangedSubview(headerLabel("· \(card.subtitle)", size: 11, color: Theme.textMuted))
-        }
-        header.addArrangedSubview(spacer)
-        header.addArrangedSubview(time)
-        stack.addArrangedSubview(header)
-        header.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -28).isActive = true
-
-        if !card.detail.isEmpty {
-            let lines = card.detail.split(separator: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
-            let preview = lines.first.map { String($0.prefix(130)) } ?? ""
-            let previewLabel = headerLabel(preview.isEmpty ? " " : preview, size: 11, color: Theme.textFaint)
-            previewLabel.lineBreakMode = .byTruncatingTail
-            stack.addArrangedSubview(previewLabel)
-            previewLabel.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -28).isActive = true
-
-            let actions = NSStackView()
-            actions.orientation = .horizontal
-            actions.spacing = 12
-            let isExpanded = expanded.contains(card.key)
-            let toggle = NSButton(title: isExpanded ? "Hide details" : "Show details", target: self, action: #selector(toggleDetails(_:)))
-            toggle.isBordered = false
-            toggle.font = .systemFont(ofSize: 11, weight: .medium)
-            toggle.contentTintColor = Theme.primary
-            toggle.identifier = NSUserInterfaceItemIdentifier(card.key)
-            actions.addArrangedSubview(toggle)
-            let copy = NSButton(title: "Copy output", target: self, action: #selector(copyOutput(_:)))
-            copy.isBordered = false
-            copy.font = .systemFont(ofSize: 11, weight: .medium)
-            copy.contentTintColor = Theme.textMuted
-            copy.identifier = NSUserInterfaceItemIdentifier(card.key)
-            actions.addArrangedSubview(copy)
-            if let sessionLine = card.detail.split(separator: "\n").first(where: { $0.hasPrefix("session: ") }) {
-                let sessionID = String(sessionLine.dropFirst("session: ".count)).trimmingCharacters(in: .whitespaces)
-                let open = NSButton(title: "Open transcript", target: self, action: #selector(openCardSession(_:)))
-                open.isBordered = false
-                open.font = .systemFont(ofSize: 11, weight: .medium)
-                open.contentTintColor = Theme.accent
-                open.identifier = NSUserInterfaceItemIdentifier(sessionID)
-                actions.addArrangedSubview(open)
-            }
-            stack.addArrangedSubview(actions)
-
-            if isExpanded {
-                let detail = NSTextView()
-                detail.isEditable = false
-                detail.isRichText = false
-                detail.drawsBackground = true
-                detail.backgroundColor = Theme.deep
-                detail.textColor = Theme.textBase
-                detail.font = Theme.codeFont(10)
-                detail.textContainerInset = NSSize(width: 8, height: 8)
-                detail.frame = NSRect(x: 0, y: 0, width: 700, height: 200)
-                detail.isVerticallyResizable = true
-                detail.autoresizingMask = [.width]
-                detail.textContainer?.widthTracksTextView = true
-                detail.string = card.detail
-                let detailScroll = NSScrollView()
-                detailScroll.translatesAutoresizingMaskIntoConstraints = false
-                detailScroll.hasVerticalScroller = true
-                detailScroll.documentView = detail
-                detailScroll.wantsLayer = true
-                detailScroll.layer?.cornerRadius = 8
-                detailScroll.layer?.borderWidth = 1
-                detailScroll.layer?.borderColor = Theme.borderMuted.cgColor
-                stack.addArrangedSubview(detailScroll)
-                detailScroll.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -28).isActive = true
-                let lineCount = card.detail.split(separator: "\n").count
-                let height = min(360, max(80, lineCount * 14 + 24))
-                detailScroll.heightAnchor.constraint(equalToConstant: CGFloat(height)).isActive = true
-            }
-        }
-        return container
+        let time = headerLabel(DateFormatter.localizedString(from: card.date, dateStyle: .none, timeStyle: .short),
+                                size: 10, color: Theme.textFaint)
+        inner.addArrangedSubview(icon)
+        inner.addArrangedSubview(text)
+        inner.addArrangedSubview(spacer)
+        inner.addArrangedSubview(time)
+        row.identifier = NSUserInterfaceItemIdentifier(card.key)
+        row.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(rowClicked(_:))))
+        return row
     }
 
-    @objc func toggleDetails(_ sender: NSButton) {
-        guard let key = sender.identifier?.rawValue else { return }
-        if expanded.contains(key) {
-            expanded.remove(key)
-        } else {
-            expanded.insert(key)
-        }
+    @objc func rowClicked(_ sender: NSClickGestureRecognizer) {
+        guard let key = sender.view?.identifier?.rawValue else { return }
+        selectedKey = key
+        expandedMessages.removeAll()
         rebuild()
     }
 
-    @objc func copyOutput(_ sender: NSButton) {
-        guard let key = sender.identifier?.rawValue else { return }
-        if let card = parseCards().first(where: { $0.key == key }) {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(card.detail, forType: .string)
+    @objc func showEarlier() {
+        visibleCards += 20
+        rebuild()
+    }
+
+    // MARK: - Right sidebar
+
+    @objc func tabChanged() {
+        renderRight()
+    }
+
+    @objc func filterChanged() {
+        filter = filterField.stringValue
+        renderOutput()
+    }
+
+    func selectedCard() -> RunCard? {
+        cards.first { $0.key == selectedKey }
+    }
+
+    func renderRight() {
+        let outputTab = tabPicker.selectedSegment == 0
+        outputContainer.isHidden = !outputTab
+        contextContainer.isHidden = outputTab
+        filterField.isHidden = !outputTab
+        guard let card = selectedCard() else {
+            rightTitle.stringValue = ""
+            rightStats.stringValue = ""
+            return
+        }
+        rightTitle.stringValue = card.title
+        let stamp = DateFormatter.localizedString(from: card.date, dateStyle: .medium, timeStyle: .medium)
+        if outputTab {
+            let lineCount = card.detail.split(separator: "\n").count
+            rightStats.stringValue = "\(card.subtitle) · \(stamp) · \(lineCount) lines"
+            renderOutput()
+        } else {
+            rightStats.stringValue = "\(stamp)\(card.sessionID.isEmpty ? " · no session id logged" : "")"
+            renderContext()
         }
     }
 
-    @objc func openCardSession(_ sender: NSButton) {
-        guard let sessionID = sender.identifier?.rawValue, !sessionID.isEmpty else { return }
-        SessionTranscriptController.open(sessionID: sessionID, title: "Agent run")
+    func renderOutput() {
+        guard let card = selectedCard() else { return }
+        var text = card.detail
+        if !filter.isEmpty {
+            text = text.split(separator: "\n", omittingEmptySubsequences: false)
+                .filter { $0.lowercased().contains(filter.lowercased()) }
+                .joined(separator: "\n")
+        }
+        outputView.textStorage?.setAttributedString(numberedText(text, size: 11))
+        outputView.scrollToBeginningOfDocument(nil)
     }
 
+    func renderContext() {
+        contextStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        guard let card = selectedCard() else { return }
+        guard !card.sessionID.isEmpty else {
+            contextStack.addArrangedSubview(headerLabel("This run has no session id — the worker logs session ids from its next restart onward.",
+                                                        size: 11, color: Theme.textMuted))
+            return
+        }
+        if let cached = sessionCache[card.sessionID] {
+            buildContext(card: card, info: cached.info, messages: cached.messages)
+            return
+        }
+        if contextLoading { return }
+        contextLoading = true
+        contextStack.addArrangedSubview(headerLabel("Loading session \(card.sessionID)…", size: 11, color: Theme.textMuted))
+        let id = card.sessionID
+        DispatchQueue.global().async {
+            let result = run("\(home)/.opencode/bin/opencode", ["session", "export", id], cwd: Prefs.project)
+            let data = result.output.data(using: .utf8) ?? Data()
+            let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+            let info = json?["info"] as? [String: Any] ?? [:]
+            let messages = json?["messages"] as? [[String: Any]] ?? []
+            DispatchQueue.main.async {
+                self.contextLoading = false
+                self.sessionCache[id] = (info, messages)
+                self.renderContext()
+            }
+        }
+    }
+
+    func buildContext(card: RunCard, info: [String: Any], messages: [[String: Any]]) {
+        let title = info["title"] as? String ?? "Session"
+        let model = (info["model"] as? [String: Any])?["id"] as? String ?? ""
+        let cost = info["cost"] as? Double ?? 0
+        let tokens = info["tokens"] as? [String: Any] ?? [:]
+        let input = tokens["input"] as? Int ?? 0
+        let output = tokens["output"] as? Int ?? 0
+        let summary = headerLabel("\(title) · \(model) · \(messages.count) messages · \(input) in / \(output) out · $\(String(format: "%.4f", cost))",
+                                  size: 11, color: Theme.textMuted)
+        summary.lineBreakMode = .byTruncatingTail
+        contextStack.addArrangedSubview(summary)
+        let assistants = messages.filter { ($0["type"] as? String) == "assistant" }
+        for message in assistants.suffix(80) {
+            let id = message["id"] as? String ?? ""
+            let created = (message["time"] as? [String: Any])?["created"] as? Double ?? 0
+            let when = created > 0 ? DateFormatter.localizedString(from: Date(timeIntervalSince1970: created / 1000), dateStyle: .short, timeStyle: .medium) : ""
+            let open = expandedMessages.contains(id)
+            let row = NSStackView()
+            row.orientation = .vertical
+            row.alignment = .leading
+            row.spacing = 6
+            let header = NSStackView()
+            header.orientation = .horizontal
+            header.spacing = 8
+            header.addArrangedSubview(headerLabel("assistant", size: 11, weight: .semibold))
+            header.addArrangedSubview(headerLabel(id, size: 10, color: Theme.textFaint))
+            let spacer = NSView()
+            spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+            header.addArrangedSubview(spacer)
+            header.addArrangedSubview(headerLabel(when, size: 10, color: Theme.textFaint))
+            let toggle = NSButton(title: open ? "Hide" : "Show", target: self, action: #selector(toggleMessage(_:)))
+            toggle.isBordered = false
+            toggle.font = .systemFont(ofSize: 10, weight: .medium)
+            toggle.contentTintColor = Theme.primary
+            toggle.identifier = NSUserInterfaceItemIdentifier(id)
+            header.addArrangedSubview(toggle)
+            row.addArrangedSubview(header)
+            header.widthAnchor.constraint(equalTo: row.widthAnchor).isActive = true
+            if open {
+                let jsonText: String
+                if let data = try? JSONSerialization.data(withJSONObject: message, options: [.prettyPrinted, .sortedKeys]),
+                   let text = String(data: data, encoding: .utf8) {
+                    jsonText = String(text.prefix(20000))
+                } else {
+                    jsonText = "\(message)"
+                }
+                let view = NSTextView()
+                view.isEditable = false
+                view.isRichText = true
+                view.drawsBackground = true
+                view.backgroundColor = Theme.deep
+                view.textContainerInset = NSSize(width: 8, height: 8)
+                view.frame = NSRect(x: 0, y: 0, width: 600, height: 200)
+                view.isVerticallyResizable = true
+                view.autoresizingMask = [.width]
+                view.textContainer?.widthTracksTextView = true
+                view.textStorage?.setAttributedString(numberedText(jsonText, size: 10))
+                let scroll = NSScrollView()
+                scroll.translatesAutoresizingMaskIntoConstraints = false
+                scroll.hasVerticalScroller = true
+                scroll.documentView = view
+                scroll.wantsLayer = true
+                scroll.layer?.cornerRadius = 8
+                scroll.layer?.borderWidth = 1
+                scroll.layer?.borderColor = Theme.borderMuted.cgColor
+                row.addArrangedSubview(scroll)
+                scroll.widthAnchor.constraint(equalTo: row.widthAnchor).isActive = true
+                scroll.heightAnchor.constraint(equalToConstant: 240).isActive = true
+            }
+            contextStack.addArrangedSubview(row)
+            row.widthAnchor.constraint(equalTo: contextStack.widthAnchor, constant: -16).isActive = true
+        }
+    }
+
+    @objc func toggleMessage(_ sender: NSButton) {
+        guard let id = sender.identifier?.rawValue else { return }
+        if expandedMessages.contains(id) { expandedMessages.remove(id) } else { expandedMessages.insert(id) }
+        renderContext()
+    }
+
+    // MARK: - Refresh
+
     func rebuild() {
-        let cards = parseCards()
+        cards = parseCards()
         let today = Calendar.current.startOfDay(for: Date())
         let runsToday = cards.filter { $0.title == "Agent run" && $0.date >= today }
         let finished = runsToday.filter { $0.status != nil }
@@ -1162,31 +1376,32 @@ final class ActivityPane: Pane {
         }
         summaryLabel.stringValue = summary
 
+        if selectedKey.isEmpty || !cards.contains(where: { $0.key == selectedKey }) {
+            selectedKey = cards.last(where: { $0.title == "Agent run" })?.key ?? cards.last?.key ?? ""
+        }
         let signature = cards.map { $0.key + ($0.status.map { $0 ? "+" : "-" } ?? "?") }.joined(separator: "|")
-            + "#\(expanded.sorted().joined(separator: ","))#\(visibleCards)"
-        if signature == lastSignature { return }
+            + "#\(visibleCards)#\(selectedKey)"
+        if signature == lastSignature {
+            renderRight()
+            return
+        }
         lastSignature = signature
 
-        let origin = scroll.contentView.bounds.origin
+        let origin = listScroll.contentView.bounds.origin
         listStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        let shown = cards.suffix(visibleCards)
-        for card in shown.reversed() {
-            let view = makeCard(card)
-            listStack.addArrangedSubview(view)
-            view.widthAnchor.constraint(equalTo: listStack.widthAnchor, constant: -12).isActive = true
+        for card in cards.suffix(visibleCards).reversed() {
+            let row = makeRow(card)
+            listStack.addArrangedSubview(row)
+            row.widthAnchor.constraint(equalTo: listStack.widthAnchor, constant: -12).isActive = true
         }
         if cards.count > visibleCards {
             let earlier = NSButton(title: "Show earlier runs", target: self, action: #selector(showEarlier))
             earlier.bezelStyle = .rounded
             listStack.addArrangedSubview(earlier)
         }
-        scroll.contentView.scroll(to: origin)
-        scroll.reflectScrolledClipView(scroll.contentView)
-    }
-
-    @objc func showEarlier() {
-        visibleCards += 12
-        rebuild()
+        listScroll.contentView.scroll(to: origin)
+        listScroll.reflectScrolledClipView(listScroll.contentView)
+        renderRight()
     }
 
     override func refresh() {
@@ -1216,7 +1431,7 @@ final class IncrementsPane: Pane {
             stack.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             stack.bottomAnchor.constraint(equalTo: root.bottomAnchor),
         ])
-        stack.addArrangedSubview(makeHeader("Increments", "Click a commit to inspect it — double-click opens the GitHub pane"))
+        stack.addArrangedSubview(makeHeader("Increments", "Click a commit to inspect it — message, files and diff"))
 
         let columns = NSStackView()
         columns.orientation = .horizontal
@@ -1236,7 +1451,7 @@ final class IncrementsPane: Pane {
         table.style = .inset
         table.target = self
         table.doubleAction = #selector(openCommit)
-        table.toolTip = "Click to inspect · double-click to open in the GitHub pane"
+        table.toolTip = "Click to inspect · double-click copies the hash"
         let listScroll = NSScrollView()
         listScroll.translatesAutoresizingMaskIntoConstraints = false
         listScroll.hasVerticalScroller = true
@@ -1276,13 +1491,16 @@ final class IncrementsPane: Pane {
             listScroll.heightAnchor.constraint(equalTo: columns.heightAnchor),
             detailScroll.heightAnchor.constraint(equalTo: columns.heightAnchor),
         ])
-        addBanner(stack, key: "increments", text: "Every committed work increment, newest first. Click a row to see the message, the changed files and the full diff right here; double-click to open it in the embedded GitHub pane.")
+        addBanner(stack, key: "increments", text: "Every committed work increment, newest first. Click a row to see the message, the changed files and the full diff right here.")
         view = root
     }
 
     @objc func openCommit() {
         let row = table.selectedRow
-        if row >= 0 && row < rows.count { openOnGitHub(commit: rows[row].0) }
+        if row >= 0 && row < rows.count {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(rows[row].0, forType: .string)
+        }
     }
 
     func loadDetail() {
@@ -2037,20 +2255,26 @@ final class SessionTranscriptController: NSObject, NSWindowDelegate {
 }
 
 
-final class GitHubPane: Pane, WKNavigationDelegate {
-    static weak var shared: GitHubPane?
-    let web = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
-    let stateLabel = headerLabel("", size: 11, color: Theme.textMuted)
-    let picker = NSSegmentedControl(labels: ["Code", "Commits", "PRs", "Issues", "Actions"],
-                                    trackingMode: .selectOne, target: nil, action: nil)
-    var base: String?
-    var loaded = false
-
-    override init(nibName nibNameOrNil: NSNib.Name?, bundle nibBundleOrNil: Bundle?) {
-        super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
-        GitHubPane.shared = self
+final class ChangesPane: Pane {
+    struct ChangedFile {
+        var path: String
+        var status: String
+        var adds: String
+        var dels: String
     }
-    required init?(coder: NSCoder) { fatalError() }
+
+    let branchLabel = headerLabel("", size: 12, weight: .semibold)
+    let statsLabel = headerLabel("", size: 11, color: Theme.textMuted)
+    let filterField = NSSearchField()
+    let table = NSTableView()
+    let diffView = NSTextView()
+    let diffHeader = headerLabel("", size: 11, color: Theme.textMuted)
+    let prevButton = NSButton(title: "", target: nil, action: nil)
+    let nextButton = NSButton(title: "", target: nil, action: nil)
+    var files: [ChangedFile] = []
+    var allFiles: [ChangedFile] = []
+    var filter = ""
+    var selectedFile = ""
 
     override func loadView() {
         let root = NSView()
@@ -2067,98 +2291,224 @@ final class GitHubPane: Pane, WKNavigationDelegate {
             stack.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             stack.bottomAnchor.constraint(equalTo: root.bottomAnchor),
         ])
-        stack.addArrangedSubview(makeHeader("GitHub", "The repository, embedded — no browser needed"))
-        let controls = NSStackView()
-        controls.orientation = .horizontal
-        controls.spacing = 8
-        let back = NSButton(title: "", target: self, action: #selector(goBack))
-        back.image = NSImage(systemSymbolName: "chevron.left", accessibilityDescription: "Back")
-        back.bezelStyle = .rounded
-        let forward = NSButton(title: "", target: self, action: #selector(goForward))
-        forward.image = NSImage(systemSymbolName: "chevron.right", accessibilityDescription: "Forward")
-        forward.bezelStyle = .rounded
-        let reload = NSButton(title: "", target: self, action: #selector(reloadPage))
-        reload.image = NSImage(systemSymbolName: "arrow.clockwise", accessibilityDescription: "Reload")
-        reload.bezelStyle = .rounded
-        picker.selectedSegment = 1
-        picker.target = self
-        picker.action = #selector(segmentChanged)
-        let openBrowser = NSButton(title: "Open in Browser", target: self, action: #selector(openInBrowser))
-        openBrowser.bezelStyle = .rounded
-        openBrowser.toolTip = "Open the current page in your default browser"
+        stack.addArrangedSubview(makeHeader("Changes", "The agent's working tree, live"))
+        let branchRow = NSStackView()
+        branchRow.orientation = .horizontal
+        branchRow.spacing = 10
+        branchRow.addArrangedSubview(branchLabel)
+        branchRow.addArrangedSubview(statsLabel)
+        stack.addArrangedSubview(branchRow)
+
+        let columns = NSStackView()
+        columns.orientation = .horizontal
+        columns.spacing = 14
+        columns.alignment = .top
+        columns.setContentHuggingPriority(.defaultLow, for: .vertical)
+
+        filterField.placeholderString = "Filter files"
+        filterField.translatesAutoresizingMaskIntoConstraints = false
+        filterField.target = self
+        filterField.action = #selector(filterChanged)
+        filterField.sendsSearchStringImmediately = true
+
+        for (title, width) in [("File", CGFloat(260)), ("+", CGFloat(50)), ("−", CGFloat(50))] {
+            let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(title))
+            column.title = title
+            column.width = width
+            table.addTableColumn(column)
+        }
+        table.dataSource = self
+        table.delegate = self
+        table.usesAlternatingRowBackgroundColors = true
+        table.style = .inset
+        let listScroll = NSScrollView()
+        listScroll.translatesAutoresizingMaskIntoConstraints = false
+        listScroll.hasVerticalScroller = true
+        listScroll.documentView = table
+        listScroll.wantsLayer = true
+        listScroll.layer?.cornerRadius = 12
+        listScroll.layer?.borderWidth = 1
+        listScroll.layer?.borderColor = Theme.border.cgColor
+        let leftColumn = NSStackView()
+        leftColumn.orientation = .vertical
+        leftColumn.alignment = .leading
+        leftColumn.spacing = 8
+        leftColumn.addArrangedSubview(filterField)
+        leftColumn.addArrangedSubview(listScroll)
+        filterField.widthAnchor.constraint(equalTo: leftColumn.widthAnchor).isActive = true
+        listScroll.widthAnchor.constraint(equalTo: leftColumn.widthAnchor).isActive = true
+        leftColumn.widthAnchor.constraint(equalToConstant: 380).isActive = true
+
+        let rightColumn = NSStackView()
+        rightColumn.orientation = .vertical
+        rightColumn.alignment = .leading
+        rightColumn.spacing = 8
+        let diffRow = NSStackView()
+        diffRow.orientation = .horizontal
+        diffRow.spacing = 8
+        diffRow.addArrangedSubview(diffHeader)
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        controls.addArrangedSubview(back)
-        controls.addArrangedSubview(forward)
-        controls.addArrangedSubview(reload)
-        controls.addArrangedSubview(picker)
-        controls.addArrangedSubview(spacer)
-        controls.addArrangedSubview(stateLabel)
-        controls.addArrangedSubview(openBrowser)
-        stack.addArrangedSubview(controls)
-        web.navigationDelegate = self
-        web.translatesAutoresizingMaskIntoConstraints = false
-        stack.addArrangedSubview(web)
-        web.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52).isActive = true
-        addBanner(stack, key: "github", text: "Your project's GitHub, live inside the app: code, commits, pull requests, issues and actions. Commits you double-click elsewhere open here; use Open in Browser to leave the app.")
+        diffRow.addArrangedSubview(spacer)
+        prevButton.image = NSImage(systemSymbolName: "chevron.left", accessibilityDescription: "Previous file")
+        prevButton.bezelStyle = .rounded
+        prevButton.target = self
+        prevButton.action = #selector(prevFile)
+        nextButton.image = NSImage(systemSymbolName: "chevron.right", accessibilityDescription: "Next file")
+        nextButton.bezelStyle = .rounded
+        nextButton.target = self
+        nextButton.action = #selector(nextFile)
+        diffRow.addArrangedSubview(prevButton)
+        diffRow.addArrangedSubview(nextButton)
+        rightColumn.addArrangedSubview(diffRow)
+
+        diffView.isEditable = false
+        diffView.isRichText = true
+        diffView.drawsBackground = true
+        diffView.backgroundColor = Theme.deep
+        diffView.textContainerInset = NSSize(width: 10, height: 10)
+        diffView.frame = NSRect(x: 0, y: 0, width: 700, height: 400)
+        diffView.isVerticallyResizable = true
+        diffView.isHorizontallyResizable = false
+        diffView.autoresizingMask = [.width]
+        diffView.textContainer?.widthTracksTextView = true
+        diffView.minSize = NSSize(width: 0, height: 0)
+        diffView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        let diffScroll = NSScrollView()
+        diffScroll.translatesAutoresizingMaskIntoConstraints = false
+        diffScroll.hasVerticalScroller = true
+        diffScroll.documentView = diffView
+        diffScroll.wantsLayer = true
+        diffScroll.layer?.cornerRadius = 12
+        diffScroll.layer?.borderWidth = 1
+        diffScroll.layer?.borderColor = Theme.border.cgColor
+        rightColumn.addArrangedSubview(diffScroll)
+        diffScroll.widthAnchor.constraint(equalTo: rightColumn.widthAnchor).isActive = true
+        diffRow.widthAnchor.constraint(equalTo: rightColumn.widthAnchor).isActive = true
+
+        columns.addArrangedSubview(leftColumn)
+        columns.addArrangedSubview(rightColumn)
+        NSLayoutConstraint.activate([
+            columns.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52),
+            leftColumn.heightAnchor.constraint(equalTo: columns.heightAnchor),
+            rightColumn.heightAnchor.constraint(equalTo: columns.heightAnchor),
+        ])
+        stack.addArrangedSubview(columns)
+        addBanner(stack, key: "changes", text: "Everything the agent has changed and not yet committed: branch, per-file counts and the live diff. Updates every couple of seconds while the agent works.")
         view = root
     }
 
-    func url(for segment: Int) -> String? {
-        guard let base else { return nil }
-        switch segment {
-        case 0: return base
-        case 1: return base + "/commits"
-        case 2: return base + "/pulls"
-        case 3: return base + "/issues"
-        default: return base + "/actions"
-        }
-    }
-
-    func show(path: String) {
-        if base == nil { base = webBase() }
-        loaded = true
-        guard let base, let url = URL(string: base + path) else { return }
-        picker.selectedSegment = -1
-        stateLabel.stringValue = "embedded · \(base)"
-        web.load(URLRequest(url: url))
-    }
-
     override func refresh() {
-        if base == nil { base = webBase() }
-        guard !loaded else { return }
-        loaded = true
-        if let urlString = url(for: picker.selectedSegment), let url = URL(string: urlString) {
-            stateLabel.stringValue = "embedded · \(base ?? "")"
-            web.load(URLRequest(url: url))
-        } else {
-            stateLabel.stringValue = "no repository remote found"
-            showMessage("No GitHub remote found in this project's git configuration.")
+        let branch = run("/usr/bin/git", ["-C", Prefs.project, "branch", "--show-current"]).output
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let upstream = run("/usr/bin/git", ["-C", Prefs.project, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]).output
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        branchLabel.stringValue = upstream.isEmpty ? "Branch: \(branch)" : "Branch: \(branch) → \(upstream)"
+
+        let status = run("/usr/bin/git", ["-C", Prefs.project, "status", "--porcelain=v1"]).output
+        let numstat = run("/usr/bin/git", ["-C", Prefs.project, "diff", "--numstat"]).output
+        var counts: [String: (String, String)] = [:]
+        for line in numstat.split(separator: "\n") {
+            let parts = line.split(separator: "\t", maxSplits: 2).map(String.init)
+            if parts.count == 3 { counts[parts[2]] = (parts[0], parts[1]) }
         }
-    }
-
-    @objc func segmentChanged() {
-        if let urlString = url(for: picker.selectedSegment), let url = URL(string: urlString) {
-            web.load(URLRequest(url: url))
+        var parsed: [ChangedFile] = []
+        for line in status.split(separator: "\n") {
+            let entry = String(line)
+            guard entry.count > 3 else { continue }
+            let statusCode = String(entry.prefix(2)).trimmingCharacters(in: .whitespaces)
+            var path = String(entry.dropFirst(3))
+            if let arrow = path.range(of: " -> ") { path = String(path[arrow.upperBound...]) }
+            let count = counts[path] ?? (statusCode == "??" ? ("new", "new") : ("0", "0"))
+            parsed.append(ChangedFile(path: path, status: statusCode.isEmpty ? "M" : statusCode, adds: count.0, dels: count.1))
         }
-    }
-    @objc func goBack() { web.goBack() }
-    @objc func goForward() { web.goForward() }
-    @objc func reloadPage() { web.reload() }
-    @objc func openInBrowser() {
-        if let url = web.url { NSWorkspace.shared.open(url) }
+        allFiles = parsed
+        files = filter.isEmpty ? parsed : parsed.filter { $0.path.lowercased().contains(filter.lowercased()) }
+
+        let totalAdds = parsed.compactMap { Int($0.adds) }.reduce(0, +)
+        let totalDels = parsed.compactMap { Int($0.dels) }.reduce(0, +)
+        statsLabel.stringValue = parsed.isEmpty
+            ? "clean — no uncommitted changes"
+            : "\(parsed.count) changed files  ·  +\(totalAdds)  ·  −\(totalDels)"
+
+        if selectedFile.isEmpty || !files.contains(where: { $0.path == selectedFile }) {
+            selectedFile = files.first?.path ?? ""
+        }
+        table.reloadData()
+        if let index = files.firstIndex(where: { $0.path == selectedFile }) {
+            table.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
+        }
+        renderDiff()
     }
 
-    func showMessage(_ message: String) {
-        let html = """
-        <html><body style="font-family:-apple-system;background:#16181c;color:#e6e6e6;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
-        <div style="text-align:center;font-size:15px;max-width:520px">\(message)</div></body></html>
-        """
-        web.loadHTMLString(html, baseURL: nil)
+    @objc func filterChanged() {
+        filter = filterField.stringValue
+        refresh()
     }
 
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        if let url = webView.url { stateLabel.stringValue = "embedded · \(url.host ?? "")" }
+    @objc func prevFile() {
+        guard let index = files.firstIndex(where: { $0.path == selectedFile }), index > 0 else { return }
+        selectedFile = files[index - 1].path
+        refresh()
+    }
+
+    @objc func nextFile() {
+        guard let index = files.firstIndex(where: { $0.path == selectedFile }), index + 1 < files.count else { return }
+        selectedFile = files[index + 1].path
+        refresh()
+    }
+
+    func renderDiff() {
+        guard let file = files.first(where: { $0.path == selectedFile }) else {
+            diffHeader.stringValue = "No file selected"
+            diffView.textStorage?.setAttributedString(numberedText("The working tree is clean — nothing to show.", size: 11))
+            return
+        }
+        diffHeader.stringValue = "\(file.status)  \(file.path)  +\(file.adds) −\(file.dels)"
+        let isUntracked = file.status == "??"
+        let result = isUntracked
+            ? run("/usr/bin/git", ["-C", Prefs.project, "diff", "--no-index", "--", "/dev/null", Prefs.project + "/" + file.path])
+            : run("/usr/bin/git", ["-C", Prefs.project, "diff", "--", file.path])
+        var text = result.output
+        if text.isEmpty {
+            text = "No textual diff for \(file.path) (binary or mode change)."
+        }
+        if text.count > 120000 { text = String(text.prefix(120000)) + "\n… diff truncated …\n" }
+        diffView.textStorage?.setAttributedString(numberedText(text, size: 11))
+        diffView.scrollToBeginningOfDocument(nil)
+    }
+}
+
+extension ChangesPane: NSTableViewDataSource, NSTableViewDelegate {
+    func numberOfRows(in tableView: NSTableView) -> Int { files.count }
+    func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+        let cell = NSTableCellView()
+        let field = NSTextField(labelWithString: "")
+        field.font = Theme.codeFont(11)
+        field.lineBreakMode = .byTruncatingMiddle
+        field.translatesAutoresizingMaskIntoConstraints = false
+        cell.addSubview(field)
+        cell.textField = field
+        NSLayoutConstraint.activate([
+            field.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 6),
+            field.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -6),
+            field.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+        ])
+        let file = files[row]
+        switch tableColumn?.identifier.rawValue {
+        case "+": field.stringValue = file.adds; field.textColor = Theme.success
+        case "−": field.stringValue = file.dels; field.textColor = Theme.danger
+        default: field.stringValue = "\(file.status)  \(file.path)"
+        }
+        return cell
+    }
+    func tableViewSelectionDidChange(_ notification: Notification) {
+        let row = table.selectedRow
+        guard row >= 0, row < files.count else { return }
+        if files[row].path != selectedFile {
+            selectedFile = files[row].path
+            renderDiff()
+        }
     }
 }
 
@@ -2184,9 +2534,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Section(title: "Live Activity", symbol: "waveform.path.ecg", tint: Theme.accent) { ActivityPane() },
         Section(title: "Processes", symbol: "cpu", tint: Theme.plan) { ProcessesPane() },
         Section(title: "Increments", symbol: "checklist", tint: Theme.success) { IncrementsPane() },
+        Section(title: "Changes", symbol: "plus.forwardslash.minus", tint: Theme.primary) { ChangesPane() },
         Section(title: "Sessions", symbol: "bubble.left.and.bubble.right", tint: Theme.writer) { SessionsPane() },
         Section(title: "Live Sessions", symbol: "globe", tint: Theme.warning) { LivePane() },
-        Section(title: "GitHub", symbol: "arrow.triangle.branch", tint: Theme.accentStrong) { GitHubPane(nibName: nil, bundle: nil) },
         Section(title: "Settings", symbol: "gearshape", tint: Theme.textMuted) { SettingsPane() },
     ]
 
