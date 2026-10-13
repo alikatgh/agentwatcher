@@ -2702,7 +2702,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sidebarScroll.isHidden = !Prefs.sidebarVisible
         sidebarFooter.isHidden = !Prefs.sidebarVisible
         sidebarSeparator.isHidden = !Prefs.sidebarVisible
-        sidebarWidth.constant = Prefs.sidebarVisible ? 224 : 0
+        sidebarWidth.constant = Prefs.sidebarVisible ? 52 : 0
     }
 
     func selectSection(_ index: Int) {
@@ -2851,10 +2851,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sidebar = NSTableView()
         sidebar.style = .sourceList
         sidebar.headerView = nil
-        sidebar.rowHeight = 34
+        sidebar.rowHeight = 36
         sidebar.selectionHighlightStyle = .regular
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("main"))
-        column.width = 220
+        column.width = 52
         sidebar.addTableColumn(column)
         sidebar.dataSource = self
         sidebar.delegate = self
@@ -2863,7 +2863,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sidebarScroll.translatesAutoresizingMaskIntoConstraints = false
         sidebarScroll.documentView = sidebar
         sidebarScroll.drawsBackground = false
-        sidebarWidth = sidebarScroll.widthAnchor.constraint(equalToConstant: 224)
+        sidebarWidth = sidebarScroll.widthAnchor.constraint(equalToConstant: 52)
 
         content.translatesAutoresizingMaskIntoConstraints = false
 
@@ -2888,7 +2888,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             avatar.heightAnchor.constraint(equalToConstant: 28),
         ])
         sidebarFooter.addArrangedSubview(avatar)
-        sidebarFooter.addArrangedSubview(headerLabel("AgentWatcher 0.1.0", size: 10, color: Theme.textFaint))
         let footerSpacer = NSView()
         footerSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         sidebarFooter.addArrangedSubview(footerSpacer)
@@ -2916,6 +2915,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sidebarScroll.isHidden = !Prefs.sidebarVisible
         sidebarFooter.isHidden = !Prefs.sidebarVisible
         sidebarSeparator.isHidden = !Prefs.sidebarVisible
+        sidebarWidth.constant = Prefs.sidebarVisible ? 52 : 0
         sidebarWidth.constant = Prefs.sidebarVisible ? 224 : 0
         window.contentView = root
         NSLog("AgentWatcher: content set")
@@ -2974,22 +2974,17 @@ extension AppDelegate: NSTableViewDataSource, NSTableViewDelegate {
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         let cell = NSTableCellView()
         let image = NSImageView()
-        image.image = NSImage(systemSymbolName: sections[row].symbol, accessibilityDescription: nil)
+        image.image = NSImage(systemSymbolName: sections[row].symbol, accessibilityDescription: sections[row].title)
         image.contentTintColor = sections[row].tint
         image.translatesAutoresizingMaskIntoConstraints = false
-        let field = NSTextField(labelWithString: sections[row].title)
-        field.font = .systemFont(ofSize: 13)
-        field.translatesAutoresizingMaskIntoConstraints = false
         cell.addSubview(image)
-        cell.addSubview(field)
-        cell.textField = field
         NSLayoutConstraint.activate([
-            image.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 8),
+            image.centerXAnchor.constraint(equalTo: cell.centerXAnchor),
             image.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
-            image.widthAnchor.constraint(equalToConstant: 20),
-            field.leadingAnchor.constraint(equalTo: image.trailingAnchor, constant: 8),
-            field.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+            image.widthAnchor.constraint(equalToConstant: 22),
+            image.heightAnchor.constraint(equalToConstant: 20),
         ])
+        cell.toolTip = "\(sections[row].title) (⌘\(row + 1))"
         return cell
     }
     func tableViewSelectionDidChange(_ notification: Notification) {
