@@ -368,6 +368,18 @@ final class CardView: NSView {
 }
 
 final class ClickRow: NSView {
+    var onHover: ((Bool) -> Void)?
+    private var tracking: NSTrackingArea?
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let tracking { removeTrackingArea(tracking) }
+        let area = NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeInKeyWindow],
+                                  owner: self, userInfo: nil)
+        addTrackingArea(area)
+        tracking = area
+    }
+    override func mouseEntered(with event: NSEvent) { onHover?(true) }
+    override func mouseExited(with event: NSEvent) { onHover?(false) }
     override func resetCursorRects() {
         addCursorRect(bounds, cursor: .pointingHand)
     }
@@ -1198,6 +1210,11 @@ final class ActivityPane: Pane {
         inner.addArrangedSubview(time)
         row.identifier = NSUserInterfaceItemIdentifier(card.key)
         row.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(rowClicked(_:))))
+        row.onHover = { [weak self, weak row] hovering in
+            guard let self, let row else { return }
+            let isSelected = row.identifier?.rawValue == self.selectedKey
+            row.layer?.backgroundColor = (hovering || isSelected ? Theme.layer02 : Theme.layer01).cgColor
+        }
         return row
     }
 
@@ -2550,6 +2567,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var navIndex = -1
     var titleItem: NSToolbarItem?
     var badgeItem: NSToolbarItem?
+    var lastFinishedRuns = -1
 
     func buildToolbar() {
         let toolbar = NSToolbar(identifier: "AgentWatcher.Toolbar")
@@ -2667,6 +2685,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         navIndex = 0
         if Prefs.autoStart && !Prefs.worker.isEmpty && !AgentStatus.current().running {
             startWorker()
+        }
+        if Prefs.worker.isEmpty {
+            DispatchQueue.main.async {
+                let alert = NSAlert()
+                alert.messageText = "Welcome to AgentWatcher"
+                alert.informativeText = "No agent worker script was detected. Open Settings to choose one, or place an agent loop script in ~/.local/bin and it will be found automatically."
+                alert.addButton(withTitle: "Open Settings")
+                alert.addButton(withTitle: "Later")
+                if alert.runModal() == .alertFirstButtonReturn {
+                    self.selectSection(self.sections.count - 1)
+                }
+            }
         }
         refreshCurrent()
         let timer = Timer(timeInterval: 2.5, repeats: true) { [weak self] _ in self?.refreshCurrent() }
@@ -2891,6 +2921,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !rightPanel.isHidden { rightPane.refresh() }
         let todayCount = commitEvents(since: "midnight").count
         (badgeItem?.view as? NSTextField)?.stringValue = "\(todayCount)"
+        NSApp.dockTile.badgeLabel = todayCount > 0 ? "\(todayCount)" : nil
+
+        let finishedRuns = logEvents().filter { $0.line.contains("run rc=") }.count
+        if lastFinishedRuns >= 0 && finishedRuns > lastFinishedRuns {
+            NSApp.requestUserAttention(.informationalRequest)
+        }
+        lastFinishedRuns = finishedRuns
     }
 }
 
