@@ -1618,121 +1618,16 @@ extension IncrementsPane: NSTableViewDataSource, NSTableViewDelegate {
 final class SessionsPane: Pane {
     let table = NSTableView()
     let search = NSSearchField()
-    var filter = ""
-    var rows: [(String, String, String)] = []
-
-    override func loadView() {
-        let root = NSView()
-        let stack = NSStackView()
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 12
-        stack.edgeInsets = NSEdgeInsets(top: 22, left: 26, bottom: 22, right: 26)
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        root.addSubview(stack)
-        NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: root.topAnchor),
-            stack.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            stack.bottomAnchor.constraint(equalTo: root.bottomAnchor),
-        ])
-        stack.addArrangedSubview(makeHeader("Sessions", "OpenCode sessions for this project"))
-        let controls = NSStackView()
-        controls.orientation = .horizontal
-        controls.spacing = 10
-        search.placeholderString = "Filter sessions"
-        search.translatesAutoresizingMaskIntoConstraints = false
-        search.widthAnchor.constraint(equalToConstant: 300).isActive = true
-        search.target = self
-        search.action = #selector(filterChanged)
-        search.sendsSearchStringImmediately = true
-        controls.addArrangedSubview(search)
-        stack.addArrangedSubview(controls)
-        for (title, width) in [("Title", CGFloat(460)), ("Updated", CGFloat(200)), ("Session", CGFloat(260))] {
-            let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(title))
-            column.title = title
-            column.width = width
-            table.addTableColumn(column)
-        }
-        table.dataSource = self
-        table.delegate = self
-        table.usesAlternatingRowBackgroundColors = true
-        table.style = .inset
-        let scroll = NSScrollView()
-        scroll.translatesAutoresizingMaskIntoConstraints = false
-        scroll.hasVerticalScroller = true
-        scroll.documentView = table
-        scroll.wantsLayer = true
-        scroll.layer?.cornerRadius = 12
-        scroll.layer?.borderWidth = 1
-        scroll.layer?.borderColor = Theme.border.cgColor
-        stack.addArrangedSubview(scroll)
-        scroll.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52).isActive = true
-        table.target = self
-        table.doubleAction = #selector(openSession)
-        table.toolTip = "Double-click a session to open its full step-by-step transcript"
-        addBanner(stack, key: "sessions", text: "OpenCode sessions for this project. Double-click one for the full step-by-step transcript — every tool call, edit and thought as expandable cards.")
-        view = root
-    }
-
-    @objc func openSession() {
-        let row = table.selectedRow
-        guard row >= 0, row < rows.count else { return }
-        SessionTranscriptController.open(sessionID: rows[row].2, title: rows[row].0)
-    }
-
-    @objc func filterChanged() {
-        filter = search.stringValue
-        refresh()
-    }
-
-    override func refresh() {
-        let result = run("\(home)/.opencode/bin/opencode", ["session", "list"], cwd: Prefs.project)
-        let parsed = result.output.split(separator: "\n").map { line -> (String, String, String) in
-            let parts = line.split(separator: "\t", maxSplits: 2).map(String.init)
-            if parts.count >= 3 { return (parts[1], parts[2], parts[0]) }
-            return (String(line), "", "")
-        }
-        rows = filter.isEmpty ? parsed : parsed.filter { $0.0.lowercased().contains(filter.lowercased()) }
-        table.reloadData()
-    }
-}
-
-extension SessionsPane: NSTableViewDataSource, NSTableViewDelegate {
-    func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
-    func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
-        let cell = NSTableCellView()
-        let field = NSTextField(labelWithString: "")
-        field.font = .systemFont(ofSize: 12)
-        field.lineBreakMode = .byTruncatingTail
-        field.translatesAutoresizingMaskIntoConstraints = false
-        cell.addSubview(field)
-        cell.textField = field
-        NSLayoutConstraint.activate([
-            field.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 6),
-            field.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -6),
-            field.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
-        ])
-        switch tableColumn?.identifier.rawValue {
-        case "Title": field.stringValue = rows[row].0
-        case "Updated": field.stringValue = rows[row].1
-        default: field.stringValue = rows[row].2
-        }
-        return cell
-    }
-}
-
-final class LivePane: Pane {
     let dot = NSView()
     let stateLabel = headerLabel("Checking…", size: 12, color: Theme.textMuted)
     let serverLabel = headerLabel("", size: 11, color: Theme.textFaint)
     let currentTitle = headerLabel("", size: 13, weight: .semibold)
     let currentDetail = headerLabel("", size: 11, color: Theme.textMuted)
-    let sessionsTable = NSTableView()
-    var sessionRows: [(String, String, String)] = []
+    var filter = ""
+    var rows: [(String, String, String)] = []
     var currentSessionID = ""
     var lastServiceCheck = Date.distantPast
-    var lastSessionLoad = Date.distantPast
+    var lastListLoad = Date.distantPast
 
     override func loadView() {
         let root = NSView()
@@ -1749,11 +1644,11 @@ final class LivePane: Pane {
             stack.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             stack.bottomAnchor.constraint(equalTo: root.bottomAnchor),
         ])
-        stack.addArrangedSubview(makeHeader("Live Sessions", "The running OpenCode service — watched natively"))
+        stack.addArrangedSubview(makeHeader("Sessions", "Every OpenCode session — live service, current run, full transcripts"))
 
-        let controls = NSStackView()
-        controls.orientation = .horizontal
-        controls.spacing = 10
+        let statusRow = NSStackView()
+        statusRow.orientation = .horizontal
+        statusRow.spacing = 10
         dot.wantsLayer = true
         dot.layer?.cornerRadius = 5
         dot.layer?.backgroundColor = Theme.textFaint.cgColor
@@ -1762,13 +1657,13 @@ final class LivePane: Pane {
             dot.widthAnchor.constraint(equalToConstant: 10),
             dot.heightAnchor.constraint(equalToConstant: 10),
         ])
-        controls.addArrangedSubview(dot)
-        controls.addArrangedSubview(stateLabel)
-        controls.addArrangedSubview(serverLabel)
+        statusRow.addArrangedSubview(dot)
+        statusRow.addArrangedSubview(stateLabel)
+        statusRow.addArrangedSubview(serverLabel)
         let reload = NSButton(title: "Reconnect", target: self, action: #selector(reconnect))
         reload.bezelStyle = .rounded
-        controls.addArrangedSubview(reload)
-        stack.addArrangedSubview(controls)
+        statusRow.addArrangedSubview(reload)
+        stack.addArrangedSubview(statusRow)
 
         let card = NSStackView()
         card.orientation = .vertical
@@ -1796,50 +1691,48 @@ final class LivePane: Pane {
         stack.addArrangedSubview(card)
         card.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52).isActive = true
 
-        stack.addArrangedSubview(headerLabel("Today's sessions", size: 11, weight: .semibold))
-        for (title, width) in [("Title", CGFloat(400)), ("Updated", CGFloat(170)), ("Session", CGFloat(240))] {
+        let controls = NSStackView()
+        controls.orientation = .horizontal
+        controls.spacing = 10
+        search.placeholderString = "Filter sessions"
+        search.translatesAutoresizingMaskIntoConstraints = false
+        search.widthAnchor.constraint(equalToConstant: 300).isActive = true
+        search.target = self
+        search.action = #selector(filterChanged)
+        search.sendsSearchStringImmediately = true
+        controls.addArrangedSubview(search)
+        stack.addArrangedSubview(controls)
+        for (title, width) in [("Title", CGFloat(460)), ("Updated", CGFloat(200)), ("Session", CGFloat(260))] {
             let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(title))
             column.title = title
             column.width = width
-            sessionsTable.addTableColumn(column)
+            table.addTableColumn(column)
         }
-        sessionsTable.dataSource = self
-        sessionsTable.delegate = self
-        sessionsTable.usesAlternatingRowBackgroundColors = true
-        sessionsTable.style = .inset
-        sessionsTable.target = self
-        sessionsTable.doubleAction = #selector(openSelected)
-        sessionsTable.toolTip = "Double-click a session to open its transcript"
+        table.dataSource = self
+        table.delegate = self
+        table.usesAlternatingRowBackgroundColors = true
+        table.style = .inset
+        table.target = self
+        table.doubleAction = #selector(openSession)
+        table.toolTip = "Double-click a session to open its full step-by-step transcript"
         let scroll = NSScrollView()
         scroll.translatesAutoresizingMaskIntoConstraints = false
         scroll.hasVerticalScroller = true
-        scroll.documentView = sessionsTable
+        scroll.documentView = table
         scroll.wantsLayer = true
         scroll.layer?.cornerRadius = 12
         scroll.layer?.borderWidth = 1
         scroll.layer?.borderColor = Theme.border.cgColor
         stack.addArrangedSubview(scroll)
         scroll.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52).isActive = true
-        addBanner(stack, key: "live", text: "The live OpenCode service, watched natively — no web embed. Reconnect re-pairs; double-click a session for its step-by-step transcript.")
+        addBanner(stack, key: "sessions", text: "Every OpenCode session with its live service status. Double-click a row for the full step-by-step transcript — every tool call, edit and thought as expandable cards.")
         view = root
-    }
-
-    override func refresh() {
-        loadCurrentRun()
-        if Date().timeIntervalSince(lastSessionLoad) > 15 {
-            lastSessionLoad = Date()
-            loadSessions()
-        }
-        if Date().timeIntervalSince(lastServiceCheck) > 120 {
-            lastServiceCheck = Date()
-            checkService()
-        }
     }
 
     @objc func reconnect() {
         lastServiceCheck = Date()
+        lastListLoad = Date()
         checkService()
-        lastSessionLoad = Date()
         loadSessions()
     }
 
@@ -1872,8 +1765,8 @@ final class LivePane: Pane {
                 return (String(line), "", "")
             }
             DispatchQueue.main.async {
-                self.sessionRows = Array(parsed.prefix(40))
-                self.sessionsTable.reloadData()
+                self.rows = self.filter.isEmpty ? parsed : parsed.filter { $0.0.lowercased().contains(self.filter.lowercased()) }
+                self.table.reloadData()
             }
         }
     }
@@ -1895,6 +1788,18 @@ final class LivePane: Pane {
         }
     }
 
+    override func refresh() {
+        loadCurrentRun()
+        if Date().timeIntervalSince(lastListLoad) > 15 {
+            lastListLoad = Date()
+            loadSessions()
+        }
+        if Date().timeIntervalSince(lastServiceCheck) > 120 {
+            lastServiceCheck = Date()
+            checkService()
+        }
+    }
+
     @objc func openCurrent() {
         guard !currentSessionID.isEmpty else { return }
         SessionTranscriptController.open(sessionID: currentSessionID, title: "Loop session \(currentSessionID.prefix(8))")
@@ -1906,15 +1811,20 @@ final class LivePane: Pane {
         NSPasteboard.general.setString(currentSessionID, forType: .string)
     }
 
-    @objc func openSelected() {
-        let row = sessionsTable.selectedRow
-        guard row >= 0, row < sessionRows.count else { return }
-        SessionTranscriptController.open(sessionID: sessionRows[row].2, title: sessionRows[row].0)
+    @objc func openSession() {
+        let row = table.selectedRow
+        guard row >= 0, row < rows.count else { return }
+        SessionTranscriptController.open(sessionID: rows[row].2, title: rows[row].0)
+    }
+
+    @objc func filterChanged() {
+        filter = search.stringValue
+        loadSessions()
     }
 }
 
-extension LivePane: NSTableViewDataSource, NSTableViewDelegate {
-    func numberOfRows(in tableView: NSTableView) -> Int { sessionRows.count }
+extension SessionsPane: NSTableViewDataSource, NSTableViewDelegate {
+    func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         let cell = NSTableCellView()
         let field = NSTextField(labelWithString: "")
@@ -1929,9 +1839,9 @@ extension LivePane: NSTableViewDataSource, NSTableViewDelegate {
             field.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
         ])
         switch tableColumn?.identifier.rawValue {
-        case "Title": field.stringValue = sessionRows[row].0
-        case "Updated": field.stringValue = sessionRows[row].1
-        default: field.stringValue = sessionRows[row].2
+        case "Title": field.stringValue = rows[row].0
+        case "Updated": field.stringValue = rows[row].1
+        default: field.stringValue = rows[row].2
         }
         return cell
     }
@@ -2776,7 +2686,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Section(title: "Increments", symbol: "square.grid.2x2", tint: Theme.success) { IncrementsPane() },
         Section(title: "Changes", symbol: "arrow.triangle.branch", tint: Theme.primary) { ChangesPane() },
         Section(title: "Sessions", symbol: "clock", tint: Theme.writer) { SessionsPane() },
-        Section(title: "Live Sessions", symbol: "square.and.pencil", tint: Theme.warning) { LivePane() },
         Section(title: "Settings", symbol: "gearshape", tint: Theme.textMuted) { SettingsPane() },
     ]
 
@@ -2993,6 +2902,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSLog("AgentWatcher: window ordered front")
         showPane(0)
         NSLog("AgentWatcher: first pane shown")
+        DispatchQueue.main.async {
+            let frame = self.panes[0].view.frame
+            NSLog("AgentWatcher: pane0 frame \(frame), subviews \(self.panes[0].view.subviews.count)")
+        }
     }
 
     func showPane(_ index: Int) {
