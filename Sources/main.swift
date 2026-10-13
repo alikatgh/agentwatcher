@@ -230,29 +230,6 @@ func commitEvents(since: String) -> [(date: Date, subject: String, hash: String)
     return items
 }
 
-func webBase() -> String? {
-    let url = run("/usr/bin/git", ["-C", Prefs.project, "remote", "get-url", "origin"]).output
-        .trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !url.isEmpty else { return nil }
-    var base = url
-    if base.hasPrefix("git@") {
-        base = base.replacingOccurrences(of: "git@", with: "https://")
-        base = base.replacingOccurrences(of: ":", with: "/")
-    }
-    if base.hasSuffix(".git") { base = String(base.dropLast(4)) }
-    return base.hasPrefix("http") ? base : nil
-}
-
-func openOnGitHub(commit: String) {
-    if let pane = GitHubPane.shared {
-        pane.show(path: "/commit/" + commit)
-        pane.onNavigate?(5)
-        return
-    }
-    guard let base = webBase(), let url = URL(string: base + "/commit/" + commit) else { return }
-    NSWorkspace.shared.open(url)
-}
-
 func startWorker() {
     guard !Prefs.worker.isEmpty else { return }
     bash("mkdir -p \"\(Prefs.stateDir)\"; rm -f \"\(Prefs.stopFile)\"; nohup caffeinate -is /bin/bash \"\(Prefs.worker)\" >/dev/null 2>&1 &")
@@ -714,7 +691,7 @@ final class OverviewPane: Pane {
     }
 
     @objc func openRecent(_ sender: NSButton) {
-        if let commit = sender.identifier?.rawValue { openOnGitHub(commit: commit) }
+        onNavigate?(3)
     }
 
     @objc func openFolder() {
@@ -1172,7 +1149,7 @@ final class IncrementsPane: Pane {
             stack.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             stack.bottomAnchor.constraint(equalTo: root.bottomAnchor),
         ])
-        stack.addArrangedSubview(makeHeader("Increments", "Click a commit to inspect it — double-click opens GitHub"))
+        stack.addArrangedSubview(makeHeader("Increments", "Click a commit to inspect it — message, files and diff"))
 
         let columns = NSStackView()
         columns.orientation = .horizontal
@@ -1190,9 +1167,7 @@ final class IncrementsPane: Pane {
         table.delegate = self
         table.usesAlternatingRowBackgroundColors = true
         table.style = .inset
-        table.target = self
-        table.doubleAction = #selector(openCommit)
-        table.toolTip = "Click to inspect · double-click to open on GitHub"
+        table.toolTip = "Click a row to inspect the message, files and diff"
         let listScroll = NSScrollView()
         listScroll.translatesAutoresizingMaskIntoConstraints = false
         listScroll.hasVerticalScroller = true
@@ -1232,13 +1207,16 @@ final class IncrementsPane: Pane {
             listScroll.heightAnchor.constraint(equalTo: columns.heightAnchor),
             detailScroll.heightAnchor.constraint(equalTo: columns.heightAnchor),
         ])
-        addBanner(stack, key: "increments", text: "Every committed work increment, newest first. Click a row to see the message, the changed files and the full diff right here; double-click to open it in the embedded GitHub pane.")
+        addBanner(stack, key: "increments", text: "Every committed work increment, newest first. Click a row to see the message, the changed files and the full diff right here.")
         view = root
     }
 
     @objc func openCommit() {
         let row = table.selectedRow
-        if row >= 0 && row < rows.count { openOnGitHub(commit: rows[row].0) }
+        if row >= 0 && row < rows.count {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(rows[row].0, forType: .string)
+        }
     }
 
     func loadDetail() {
@@ -1588,20 +1566,18 @@ final class SettingsPane: Pane {
 }
 
 
-final class GitHubPane: Pane, WKNavigationDelegate {
-    static weak var shared: GitHubPane?
-    let web = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
-    let stateLabel = headerLabel("", size: 11, color: .secondaryLabelColor)
-    let picker = NSSegmentedControl(labels: ["Code", "Commits", "PRs", "Issues", "Actions"],
-                                    trackingMode: .selectOne, target: nil, action: nil)
-    var base: String?
-    var loaded = false
 
-    override init(nibName nibNameOrNil: NSNib.Name?, bundle nibBundleOrNil: Bundle?) {
-        super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
-        GitHubPane.shared = self
+final class ProcessesPane: Pane {
+    struct ProcessRow {
+        var pid: String
+        var cpu: String
+        var mem: String
+        var elapsed: String
+        var command: String
     }
-    required init?(coder: NSCoder) { fatalError() }
+    let table = NSTableView()
+    let infoLabel = headerLabel("", size: 11, color: .secondaryLabelColor)
+    var rows: [ProcessRow] = []
 
     override func loadView() {
         let root = NSView()
@@ -1618,98 +1594,91 @@ final class GitHubPane: Pane, WKNavigationDelegate {
             stack.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             stack.bottomAnchor.constraint(equalTo: root.bottomAnchor),
         ])
-        stack.addArrangedSubview(makeHeader("GitHub", "The repository, embedded — no browser needed"))
+        stack.addArrangedSubview(makeHeader("Processes", "The agent's live OS processes"))
+        for (title, width) in [("PID", CGFloat(70)), ("CPU %", CGFloat(60)), ("MEM %", CGFloat(60)),
+                               ("Elapsed", CGFloat(80)), ("Command", CGFloat(540))] {
+            let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(title))
+            column.title = title
+            column.width = width
+            table.addTableColumn(column)
+        }
+        table.dataSource = self
+        table.delegate = self
+        table.usesAlternatingRowBackgroundColors = true
+        table.style = .inset
+        let scroll = NSScrollView()
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        scroll.hasVerticalScroller = true
+        scroll.documentView = table
+        scroll.wantsLayer = true
+        scroll.layer?.cornerRadius = 12
+        scroll.layer?.borderWidth = 1
+        scroll.layer?.borderColor = NSColor(calibratedWhite: 0.24, alpha: 1).cgColor
+        stack.addArrangedSubview(scroll)
+        scroll.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52).isActive = true
         let controls = NSStackView()
         controls.orientation = .horizontal
-        controls.spacing = 8
-        let back = NSButton(title: "", target: self, action: #selector(goBack))
-        back.image = NSImage(systemSymbolName: "chevron.left", accessibilityDescription: "Back")
-        back.bezelStyle = .rounded
-        let forward = NSButton(title: "", target: self, action: #selector(goForward))
-        forward.image = NSImage(systemSymbolName: "chevron.right", accessibilityDescription: "Forward")
-        forward.bezelStyle = .rounded
-        let reload = NSButton(title: "", target: self, action: #selector(reloadPage))
-        reload.image = NSImage(systemSymbolName: "arrow.clockwise", accessibilityDescription: "Reload")
-        reload.bezelStyle = .rounded
-        picker.selectedSegment = 1
-        picker.target = self
-        picker.action = #selector(segmentChanged)
-        let openBrowser = NSButton(title: "Open in Browser", target: self, action: #selector(openInBrowser))
-        openBrowser.bezelStyle = .rounded
-        openBrowser.toolTip = "Open the current page in your default browser"
-        let spacer = NSView()
-        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        controls.addArrangedSubview(back)
-        controls.addArrangedSubview(forward)
-        controls.addArrangedSubview(reload)
-        controls.addArrangedSubview(picker)
-        controls.addArrangedSubview(spacer)
-        controls.addArrangedSubview(stateLabel)
-        controls.addArrangedSubview(openBrowser)
+        controls.spacing = 10
+        let kill = NSButton(title: "Stop Selected Process", target: self, action: #selector(killSelected))
+        kill.bezelStyle = .rounded
+        kill.toolTip = "Send SIGTERM to the selected process"
+        controls.addArrangedSubview(kill)
+        controls.addArrangedSubview(infoLabel)
         stack.addArrangedSubview(controls)
-        web.navigationDelegate = self
-        web.translatesAutoresizingMaskIntoConstraints = false
-        stack.addArrangedSubview(web)
-        web.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52).isActive = true
-        addBanner(stack, key: "github", text: "Your project's GitHub, live inside the app: code, commits, pull requests, issues and actions. Commits you double-click elsewhere open here; use Open in Browser to leave the app.")
+        addBanner(stack, key: "processes", text: "Every live process that belongs to the agent: the worker loop, its keep-awake helper and the OpenCode runs it spawns. Stop Selected Process ends one cleanly with SIGTERM.")
         view = root
     }
 
-    func url(for segment: Int) -> String? {
-        guard let base else { return nil }
-        switch segment {
-        case 0: return base
-        case 1: return base + "/commits"
-        case 2: return base + "/pulls"
-        case 3: return base + "/issues"
-        default: return base + "/actions"
-        }
-    }
-
-    func show(path: String) {
-        if base == nil { base = webBase() }
-        loaded = true
-        guard let base, let url = URL(string: base + path) else { return }
-        picker.selectedSegment = -1
-        stateLabel.stringValue = "embedded · \(base)"
-        web.load(URLRequest(url: url))
-    }
-
     override func refresh() {
-        if base == nil { base = webBase() }
-        guard !loaded else { return }
-        loaded = true
-        if let urlString = url(for: picker.selectedSegment), let url = URL(string: urlString) {
-            stateLabel.stringValue = "embedded · \(base ?? "")"
-            web.load(URLRequest(url: url))
-        } else {
-            stateLabel.stringValue = "no repository remote found"
-            showMessage("No GitHub remote found in this project's git configuration.")
+        let result = run("/bin/ps", ["-axo", "pid=,pcpu=,pmem=,etime=,command="])
+        var patterns: [String] = ["caffeinate", "opencode"]
+        let workerName = (Prefs.worker as NSString).lastPathComponent
+        if !workerName.isEmpty { patterns.append(workerName) }
+        rows = []
+        for line in result.output.split(separator: "\n") {
+            let parts = line.split(separator: " ", maxSplits: 4, omittingEmptySubsequences: true).map(String.init)
+            guard parts.count >= 5 else { continue }
+            let command = parts[4]
+            guard patterns.contains(where: { command.contains($0) }) else { continue }
+            guard !command.contains("AgentWatcher"), !command.contains("ps -axo"), !command.contains("grep") else { continue }
+            rows.append(ProcessRow(pid: parts[0], cpu: parts[1], mem: parts[2], elapsed: parts[3],
+                                   command: String(command.prefix(220))))
         }
+        infoLabel.stringValue = rows.isEmpty ? "no agent processes running" : "\(rows.count) agent processes"
+        table.reloadData()
     }
 
-    @objc func segmentChanged() {
-        if let urlString = url(for: picker.selectedSegment), let url = URL(string: urlString) {
-            web.load(URLRequest(url: url))
+    @objc func killSelected() {
+        let row = table.selectedRow
+        guard row >= 0, row < rows.count else { return }
+        run("/bin/kill", ["-TERM", rows[row].pid])
+        refresh()
+    }
+}
+
+extension ProcessesPane: NSTableViewDataSource, NSTableViewDelegate {
+    func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
+    func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+        let cell = NSTableCellView()
+        let field = NSTextField(labelWithString: "")
+        field.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+        field.lineBreakMode = .byTruncatingTail
+        field.translatesAutoresizingMaskIntoConstraints = false
+        cell.addSubview(field)
+        cell.textField = field
+        NSLayoutConstraint.activate([
+            field.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 6),
+            field.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -6),
+            field.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+        ])
+        switch tableColumn?.identifier.rawValue {
+        case "PID": field.stringValue = rows[row].pid
+        case "CPU %": field.stringValue = rows[row].cpu
+        case "MEM %": field.stringValue = rows[row].mem
+        case "Elapsed": field.stringValue = rows[row].elapsed
+        default: field.stringValue = rows[row].command
         }
-    }
-    @objc func goBack() { web.goBack() }
-    @objc func goForward() { web.goForward() }
-    @objc func reloadPage() { web.reload() }
-    @objc func openInBrowser() {
-        if let url = web.url { NSWorkspace.shared.open(url) }
-    }
-
-    func showMessage(_ message: String) {
-        let html = """
-        <html><body style="font-family:-apple-system;background:#16181c;color:#e6e6e6;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
-        <div style="text-align:center;font-size:15px;max-width:520px">\(message)</div></body></html>
-        """
-        web.loadHTMLString(html, baseURL: nil)
-    }
-
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        if let url = webView.url { stateLabel.stringValue = "embedded · \(url.host ?? "")" }
+        return cell
     }
 }
 
@@ -1765,12 +1734,6 @@ final class SessionTranscriptController: NSObject, NSWindowDelegate {
         reload.bezelStyle = .rounded
         let copy = NSButton(title: "Copy ID", target: self, action: #selector(copyID))
         copy.bezelStyle = .rounded
-        let expandAll = NSButton(title: "Expand all", target: self, action: #selector(expandAllTapped))
-        expandAll.bezelStyle = .rounded
-        let collapseAll = NSButton(title: "Collapse all", target: self, action: #selector(collapseAllTapped))
-        collapseAll.bezelStyle = .rounded
-        header.addArrangedSubview(collapseAll)
-        header.addArrangedSubview(expandAll)
         header.addArrangedSubview(copy)
         header.addArrangedSubview(reload)
         header.translatesAutoresizingMaskIntoConstraints = false
@@ -1809,14 +1772,6 @@ final class SessionTranscriptController: NSObject, NSWindowDelegate {
     }
 
     @objc func reloadTapped() { load() }
-    @objc func expandAllTapped() {
-        expanded = Set(parts.filter { !$0.body.isEmpty }.map { $0.key })
-        render()
-    }
-    @objc func collapseAllTapped() {
-        expanded.removeAll()
-        render()
-    }
     @objc func copyID() {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(sessionID, forType: .string)
@@ -1881,21 +1836,8 @@ final class SessionTranscriptController: NSObject, NSWindowDelegate {
                         let output = (state["content"] as? [[String: Any]] ?? [])
                             .compactMap { $0["text"] as? String }.joined(separator: "\n")
                         var body = ""
-                        if name == "edit" || name == "write" || name == "patch" {
-                            let file = (input["filePath"] as? String) ?? (input["path"] as? String) ?? ""
-                            var diff = ""
-                            if let old = input["oldString"] as? String {
-                                diff += old.split(separator: "\n", omittingEmptySubsequences: false).map { "- " + $0 }.joined(separator: "\n") + "\n"
-                            }
-                            if let new = input["newString"] as? String {
-                                diff += new.split(separator: "\n", omittingEmptySubsequences: false).map { "+ " + $0 }.joined(separator: "\n") + "\n"
-                            }
-                            if diff.isEmpty, let content = input["content"] as? String {
-                                diff = content.split(separator: "\n", omittingEmptySubsequences: false).map { "+ " + $0 }.joined(separator: "\n")
-                            }
-                            body = (file.isEmpty ? "" : file + "\n\n") + diff
-                        } else if let data = try? JSONSerialization.data(withJSONObject: input, options: [.prettyPrinted, .sortedKeys]),
-                                  let text = String(data: data, encoding: .utf8) {
+                        if let data = try? JSONSerialization.data(withJSONObject: input, options: [.prettyPrinted, .sortedKeys]),
+                           let text = String(data: data, encoding: .utf8) {
                             body = text
                         }
                         if !output.isEmpty {
@@ -2010,12 +1952,7 @@ final class SessionTranscriptController: NSObject, NSWindowDelegate {
             text.isVerticallyResizable = true
             text.autoresizingMask = [.width]
             text.textContainer?.widthTracksTextView = true
-            text.string = ""
-            if part.monospaced {
-                text.textStorage?.setAttributedString(diffStyledText(part.body, font: text.font ?? .monospacedSystemFont(ofSize: 11, weight: .regular)))
-            } else {
-                text.string = part.body
-            }
+            text.string = part.body
             let size = min(360, max(60, part.body.split(separator: "\n").count * 15 + 20))
             let textScroll = NSScrollView()
             textScroll.translatesAutoresizingMaskIntoConstraints = false
@@ -2053,10 +1990,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let sections: [Section] = [
         Section(title: "Overview", symbol: "gauge", tint: .systemTeal) { OverviewPane() },
         Section(title: "Live Activity", symbol: "waveform.path.ecg", tint: .systemBlue) { ActivityPane() },
+        Section(title: "Processes", symbol: "cpu", tint: .systemPink) { ProcessesPane() },
         Section(title: "Increments", symbol: "checklist", tint: .systemGreen) { IncrementsPane() },
         Section(title: "Sessions", symbol: "bubble.left.and.bubble.right", tint: .systemPurple) { SessionsPane() },
         Section(title: "Live Sessions", symbol: "globe", tint: .systemOrange) { LivePane() },
-        Section(title: "GitHub", symbol: "arrow.triangle.branch", tint: .systemIndigo) { GitHubPane(nibName: nil, bundle: nil) },
         Section(title: "Settings", symbol: "gearshape", tint: .systemGray) { SettingsPane() },
     ]
 
