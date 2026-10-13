@@ -8,6 +8,50 @@ import WebKit
 
 let home = NSHomeDirectory()
 
+// MARK: - Theme (extracted from OpenCode's macOS client, packages/ui/src/theme/themes/oc-2.json)
+
+enum Theme {
+    static func hex(_ value: UInt32) -> NSColor {
+        NSColor(srgbRed: CGFloat((value >> 16) & 0xFF) / 255.0,
+                green: CGFloat((value >> 8) & 0xFF) / 255.0,
+                blue: CGFloat(value & 0xFF) / 255.0,
+                alpha: 1)
+    }
+    static let base = hex(0x161616)
+    static let deep = hex(0x080808)
+    static let layer01 = hex(0x242424)
+    static let layer02 = hex(0x2E2E2E)
+    static let layer03 = hex(0x3A3A3A)
+    static let textBase = hex(0xFAFAFA)
+    static let textMuted = hex(0xAEAEAE)
+    static let textFaint = hex(0x808080)
+    static let iconBase = hex(0xDBDBDB)
+    static let primary = hex(0xFAB283)
+    static let accent = hex(0xA2BCFF)
+    static let accentStrong = hex(0x3B5CF6)
+    static let success = hex(0x6BD586)
+    static let warning = hex(0xF2CF76)
+    static let danger = hex(0xF17471)
+    static let plan = hex(0xF799C6)
+    static let explore = hex(0xF7E5B5)
+    static let review = hex(0xB8E9C1)
+    static let writer = hex(0x9E99F7)
+    static let border = NSColor(srgbRed: 1, green: 1, blue: 1, alpha: 0.10)
+    static let borderMuted = NSColor(srgbRed: 1, green: 1, blue: 1, alpha: 0.08)
+    static let borderStrong = NSColor(srgbRed: 1, green: 1, blue: 1, alpha: 0.20)
+
+    static func uiFont(_ size: CGFloat, weight: NSFont.Weight = .regular) -> NSFont {
+        if weight == .regular, let inter = NSFont(name: "Inter", size: size) { return inter }
+        return .systemFont(ofSize: size, weight: weight)
+    }
+    static func codeFont(_ size: CGFloat) -> NSFont {
+        for name in ["JetBrainsMonoNFM-Regular", "JetBrainsMono Nerd Font Mono", "IBMPlexMono-Text", "Menlo"] {
+            if let font = NSFont(name: name, size: size) { return font }
+        }
+        return .monospacedSystemFont(ofSize: size, weight: .regular)
+    }
+}
+
 // MARK: - Preferences
 
 struct Prefs {
@@ -228,6 +272,29 @@ func commitEvents(since: String) -> [(date: Date, subject: String, hash: String)
         items.append((Date(timeIntervalSince1970: epoch), parts[1], parts[2]))
     }
     return items
+}
+
+func webBase() -> String? {
+    let url = run("/usr/bin/git", ["-C", Prefs.project, "remote", "get-url", "origin"]).output
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !url.isEmpty else { return nil }
+    var base = url
+    if base.hasPrefix("git@") {
+        base = base.replacingOccurrences(of: "git@", with: "https://")
+        base = base.replacingOccurrences(of: ":", with: "/")
+    }
+    if base.hasSuffix(".git") { base = String(base.dropLast(4)) }
+    return base.hasPrefix("http") ? base : nil
+}
+
+func openOnGitHub(commit: String) {
+    if let pane = GitHubPane.shared {
+        pane.show(path: "/commit/" + commit)
+        pane.onNavigate?(6)
+        return
+    }
+    guard let base = webBase(), let url = URL(string: base + "/commit/" + commit) else { return }
+    NSWorkspace.shared.open(url)
 }
 
 func startWorker() {
@@ -691,7 +758,7 @@ final class OverviewPane: Pane {
     }
 
     @objc func openRecent(_ sender: NSButton) {
-        onNavigate?(3)
+        if let commit = sender.identifier?.rawValue { openOnGitHub(commit: commit) }
     }
 
     @objc func openFolder() {
@@ -1149,7 +1216,7 @@ final class IncrementsPane: Pane {
             stack.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             stack.bottomAnchor.constraint(equalTo: root.bottomAnchor),
         ])
-        stack.addArrangedSubview(makeHeader("Increments", "Click a commit to inspect it — message, files and diff"))
+        stack.addArrangedSubview(makeHeader("Increments", "Click a commit to inspect it — double-click opens the GitHub pane"))
 
         let columns = NSStackView()
         columns.orientation = .horizontal
@@ -1167,7 +1234,9 @@ final class IncrementsPane: Pane {
         table.delegate = self
         table.usesAlternatingRowBackgroundColors = true
         table.style = .inset
-        table.toolTip = "Click a row to inspect the message, files and diff"
+        table.target = self
+        table.doubleAction = #selector(openCommit)
+        table.toolTip = "Click to inspect · double-click to open in the GitHub pane"
         let listScroll = NSScrollView()
         listScroll.translatesAutoresizingMaskIntoConstraints = false
         listScroll.hasVerticalScroller = true
@@ -1207,16 +1276,13 @@ final class IncrementsPane: Pane {
             listScroll.heightAnchor.constraint(equalTo: columns.heightAnchor),
             detailScroll.heightAnchor.constraint(equalTo: columns.heightAnchor),
         ])
-        addBanner(stack, key: "increments", text: "Every committed work increment, newest first. Click a row to see the message, the changed files and the full diff right here.")
+        addBanner(stack, key: "increments", text: "Every committed work increment, newest first. Click a row to see the message, the changed files and the full diff right here; double-click to open it in the embedded GitHub pane.")
         view = root
     }
 
     @objc func openCommit() {
         let row = table.selectedRow
-        if row >= 0 && row < rows.count {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(rows[row].0, forType: .string)
-        }
+        if row >= 0 && row < rows.count { openOnGitHub(commit: rows[row].0) }
     }
 
     func loadDetail() {
@@ -1970,6 +2036,132 @@ final class SessionTranscriptController: NSObject, NSWindowDelegate {
     }
 }
 
+
+final class GitHubPane: Pane, WKNavigationDelegate {
+    static weak var shared: GitHubPane?
+    let web = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
+    let stateLabel = headerLabel("", size: 11, color: .secondaryLabelColor)
+    let picker = NSSegmentedControl(labels: ["Code", "Commits", "PRs", "Issues", "Actions"],
+                                    trackingMode: .selectOne, target: nil, action: nil)
+    var base: String?
+    var loaded = false
+
+    override init(nibName nibNameOrNil: NSNib.Name?, bundle nibBundleOrNil: Bundle?) {
+        super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
+        GitHubPane.shared = self
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func loadView() {
+        let root = NSView()
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 12
+        stack.edgeInsets = NSEdgeInsets(top: 22, left: 26, bottom: 22, right: 26)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: root.topAnchor),
+            stack.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            stack.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+        ])
+        stack.addArrangedSubview(makeHeader("GitHub", "The repository, embedded — no browser needed"))
+        let controls = NSStackView()
+        controls.orientation = .horizontal
+        controls.spacing = 8
+        let back = NSButton(title: "", target: self, action: #selector(goBack))
+        back.image = NSImage(systemSymbolName: "chevron.left", accessibilityDescription: "Back")
+        back.bezelStyle = .rounded
+        let forward = NSButton(title: "", target: self, action: #selector(goForward))
+        forward.image = NSImage(systemSymbolName: "chevron.right", accessibilityDescription: "Forward")
+        forward.bezelStyle = .rounded
+        let reload = NSButton(title: "", target: self, action: #selector(reloadPage))
+        reload.image = NSImage(systemSymbolName: "arrow.clockwise", accessibilityDescription: "Reload")
+        reload.bezelStyle = .rounded
+        picker.selectedSegment = 1
+        picker.target = self
+        picker.action = #selector(segmentChanged)
+        let openBrowser = NSButton(title: "Open in Browser", target: self, action: #selector(openInBrowser))
+        openBrowser.bezelStyle = .rounded
+        openBrowser.toolTip = "Open the current page in your default browser"
+        let spacer = NSView()
+        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        controls.addArrangedSubview(back)
+        controls.addArrangedSubview(forward)
+        controls.addArrangedSubview(reload)
+        controls.addArrangedSubview(picker)
+        controls.addArrangedSubview(spacer)
+        controls.addArrangedSubview(stateLabel)
+        controls.addArrangedSubview(openBrowser)
+        stack.addArrangedSubview(controls)
+        web.navigationDelegate = self
+        web.translatesAutoresizingMaskIntoConstraints = false
+        stack.addArrangedSubview(web)
+        web.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52).isActive = true
+        addBanner(stack, key: "github", text: "Your project's GitHub, live inside the app: code, commits, pull requests, issues and actions. Commits you double-click elsewhere open here; use Open in Browser to leave the app.")
+        view = root
+    }
+
+    func url(for segment: Int) -> String? {
+        guard let base else { return nil }
+        switch segment {
+        case 0: return base
+        case 1: return base + "/commits"
+        case 2: return base + "/pulls"
+        case 3: return base + "/issues"
+        default: return base + "/actions"
+        }
+    }
+
+    func show(path: String) {
+        if base == nil { base = webBase() }
+        loaded = true
+        guard let base, let url = URL(string: base + path) else { return }
+        picker.selectedSegment = -1
+        stateLabel.stringValue = "embedded · \(base)"
+        web.load(URLRequest(url: url))
+    }
+
+    override func refresh() {
+        if base == nil { base = webBase() }
+        guard !loaded else { return }
+        loaded = true
+        if let urlString = url(for: picker.selectedSegment), let url = URL(string: urlString) {
+            stateLabel.stringValue = "embedded · \(base ?? "")"
+            web.load(URLRequest(url: url))
+        } else {
+            stateLabel.stringValue = "no repository remote found"
+            showMessage("No GitHub remote found in this project's git configuration.")
+        }
+    }
+
+    @objc func segmentChanged() {
+        if let urlString = url(for: picker.selectedSegment), let url = URL(string: urlString) {
+            web.load(URLRequest(url: url))
+        }
+    }
+    @objc func goBack() { web.goBack() }
+    @objc func goForward() { web.goForward() }
+    @objc func reloadPage() { web.reload() }
+    @objc func openInBrowser() {
+        if let url = web.url { NSWorkspace.shared.open(url) }
+    }
+
+    func showMessage(_ message: String) {
+        let html = """
+        <html><body style="font-family:-apple-system;background:#16181c;color:#e6e6e6;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
+        <div style="text-align:center;font-size:15px;max-width:520px">\(message)</div></body></html>
+        """
+        web.loadHTMLString(html, baseURL: nil)
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        if let url = webView.url { stateLabel.stringValue = "embedded · \(url.host ?? "")" }
+    }
+}
+
 // MARK: - Sidebar + window
 
 struct Section {
@@ -1994,6 +2186,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Section(title: "Increments", symbol: "checklist", tint: .systemGreen) { IncrementsPane() },
         Section(title: "Sessions", symbol: "bubble.left.and.bubble.right", tint: .systemPurple) { SessionsPane() },
         Section(title: "Live Sessions", symbol: "globe", tint: .systemOrange) { LivePane() },
+        Section(title: "GitHub", symbol: "arrow.triangle.branch", tint: .systemIndigo) { GitHubPane(nibName: nil, bundle: nil) },
         Section(title: "Settings", symbol: "gearshape", tint: .systemGray) { SettingsPane() },
     ]
 

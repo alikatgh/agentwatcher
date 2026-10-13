@@ -1,0 +1,28 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: macos-15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install icon tooling
+        run: python3 -m pip install --quiet Pillow
+      - name: Build app and DMG
+        run: bash build.sh
+      - name: Create release with the DMG
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "dist/AgentWatcher-0.1.0.dmg" \
+            --title "AgentWatcher $GITHUB_REF_NAME" \
+            --notes "Built automatically by GitHub Actions from commit $GITHUB_SHA."

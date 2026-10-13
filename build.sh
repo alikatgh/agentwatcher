@@ -11,15 +11,20 @@ MASTER="$ROOT/dist/icon-master.png"
 rm -rf "$APP" "$STAGE" "$DMG" "$ICONSET" "$MASTER"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
-# Icon.
-/opt/homebrew/bin/python3 "$ROOT/tools/make_icon.py" "$MASTER" >/dev/null
-mkdir -p "$ICONSET"
-for spec in "16 16x16" "32 16x16@2x" "32 32x32" "64 32x32@2x" "128 128x128" "256 128x128@2x" \
-            "256 256x256" "512 256x256@2x" "512 512x512" "1024 512x512@2x"; do
-  set -- $spec
-  sips -z "$1" "$1" "$MASTER" --out "$ICONSET/icon_$2.png" >/dev/null
-done
-iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
+# Icon (skipped gracefully when Pillow is unavailable, e.g. minimal CI images).
+PYTHON_BIN="${PYTHON_BIN:-$(command -v python3 || true)}"
+if [ -n "$PYTHON_BIN" ] && "$PYTHON_BIN" -c "import PIL" >/dev/null 2>&1; then
+  "$PYTHON_BIN" "$ROOT/tools/make_icon.py" "$MASTER" >/dev/null
+  mkdir -p "$ICONSET"
+  for spec in "16 16x16" "32 16x16@2x" "32 32x32" "64 32x32@2x" "128 128x128" "256 128x128@2x" \
+              "256 256x256" "512 256x256@2x" "512 512x512" "1024 512x512@2x"; do
+    set -- $spec
+    sips -z "$1" "$1" "$MASTER" --out "$ICONSET/icon_$2.png" >/dev/null
+  done
+  iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
+else
+  echo "icon: skipped (python3 with Pillow not found)"
+fi
 
 # Binary + metadata.
 swiftc -O -swift-version 5 "$ROOT/Sources/main.swift" -o "$APP/Contents/MacOS/AgentWatcher"

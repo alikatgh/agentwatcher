@@ -1,0 +1,30 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install icon tooling
+        run: python3 -m pip install --quiet Pillow
+      - name: Build app and DMG
+        run: bash build.sh
+      - name: Verify signature and DMG
+        run: |
+          codesign --verify --deep --strict "dist/AgentWatcher.app"
+          hdiutil verify "dist/AgentWatcher-0.1.0.dmg"
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: AgentWatcher-dmg
+          path: dist/AgentWatcher-0.1.0.dmg
+          retention-days: 14
