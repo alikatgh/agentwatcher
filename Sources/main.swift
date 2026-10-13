@@ -258,6 +258,23 @@ func startWorker() {
     bash("mkdir -p \"\(Prefs.stateDir)\"; rm -f \"\(Prefs.stopFile)\"; nohup caffeinate -is /bin/bash \"\(Prefs.worker)\" >/dev/null 2>&1 &")
 }
 
+func diffStyledText(_ text: String, font: NSFont) -> NSAttributedString {
+    let attributed = NSMutableAttributedString()
+    for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
+        let value = String(line) + "\n"
+        var color = NSColor(calibratedWhite: 0.86, alpha: 1)
+        if (value.hasPrefix("+ ") || value.hasPrefix("+")) && !value.hasPrefix("+++") {
+            color = .systemGreen
+        } else if (value.hasPrefix("- ") || value.hasPrefix("-")) && !value.hasPrefix("---") {
+            color = .systemRed
+        } else if value.hasPrefix("@@") {
+            color = .systemTeal
+        }
+        attributed.append(NSAttributedString(string: value, attributes: [.foregroundColor: color, .font: font]))
+    }
+    return attributed
+}
+
 // MARK: - Small views
 
 final class PulseDot: NSView {
@@ -805,6 +822,7 @@ final class ActivityPane: Pane {
     let summaryLabel = headerLabel("", size: 12, color: .secondaryLabelColor)
     var expanded = Set<String>()
     var visibleCards = 12
+    var lastSignature = ""
 
     override func loadView() {
         let root = NSView()
@@ -895,7 +913,11 @@ final class ActivityPane: Pane {
                 current = Event(stamp: stamp, date: date, kind: kind, title: title, ok: ok, detail: [message])
             } else if current != nil {
                 let size = current!.detail.reduce(0) { $0 + $1.count }
-                if size < 12000 { current!.detail.append(line) }
+                if size < 12000 {
+                    current!.detail.append(line)
+                } else if current!.detail.last != "… output truncated …" {
+                    current!.detail.append("… output truncated …")
+                }
             }
         }
         flush()
@@ -905,7 +927,10 @@ final class ActivityPane: Pane {
         var pendingEnd: Event?
         func finishPending() {
             guard let start = pendingStart else { return }
-            let detail = start.detail.joined(separator: "\n")
+            var lines = start.detail + (pendingEnd?.detail ?? [])
+            lines.removeAll { $0 == "starting run" || $0.hasPrefix("run rc=") || $0.hasPrefix("session: ") }
+            var detail = lines.joined(separator: "\n")
+            if detail.isEmpty { detail = "No captured output for this run." }
             var subtitle = "in progress"
             var status: Bool?
             if let end = pendingEnd {
@@ -990,20 +1015,39 @@ final class ActivityPane: Pane {
         header.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -28).isActive = true
 
         if !card.detail.isEmpty {
-            let lines = card.detail.split(separator: "\n")
+            let lines = card.detail.split(separator: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
             let preview = lines.first.map { String($0.prefix(130)) } ?? ""
             let previewLabel = headerLabel(preview.isEmpty ? " " : preview, size: 11, color: .tertiaryLabelColor)
             previewLabel.lineBreakMode = .byTruncatingTail
             stack.addArrangedSubview(previewLabel)
             previewLabel.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -28).isActive = true
 
+            let actions = NSStackView()
+            actions.orientation = .horizontal
+            actions.spacing = 12
             let isExpanded = expanded.contains(card.key)
             let toggle = NSButton(title: isExpanded ? "Hide details" : "Show details", target: self, action: #selector(toggleDetails(_:)))
             toggle.isBordered = false
             toggle.font = .systemFont(ofSize: 11, weight: .medium)
             toggle.contentTintColor = .systemTeal
             toggle.identifier = NSUserInterfaceItemIdentifier(card.key)
-            stack.addArrangedSubview(toggle)
+            actions.addArrangedSubview(toggle)
+            let copy = NSButton(title: "Copy output", target: self, action: #selector(copyOutput(_:)))
+            copy.isBordered = false
+            copy.font = .systemFont(ofSize: 11, weight: .medium)
+            copy.contentTintColor = .secondaryLabelColor
+            copy.identifier = NSUserInterfaceItemIdentifier(card.key)
+            actions.addArrangedSubview(copy)
+            if let sessionLine = card.detail.split(separator: "\n").first(where: { $0.hasPrefix("session: ") }) {
+                let sessionID = String(sessionLine.dropFirst("session: ".count)).trimmingCharacters(in: .whitespaces)
+                let open = NSButton(title: "Open transcript", target: self, action: #selector(openCardSession(_:)))
+                open.isBordered = false
+                open.font = .systemFont(ofSize: 11, weight: .medium)
+                open.contentTintColor = .systemBlue
+                open.identifier = NSUserInterfaceItemIdentifier(sessionID)
+                actions.addArrangedSubview(open)
+            }
+            stack.addArrangedSubview(actions)
 
             if isExpanded {
                 let detail = NSTextView()
@@ -1029,7 +1073,9 @@ final class ActivityPane: Pane {
                 detailScroll.layer?.borderColor = NSColor(calibratedWhite: 0.22, alpha: 1).cgColor
                 stack.addArrangedSubview(detailScroll)
                 detailScroll.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -28).isActive = true
-                detailScroll.heightAnchor.constraint(equalToConstant: 200).isActive = true
+                let lineCount = card.detail.split(separator: "\n").count
+                let height = min(360, max(80, lineCount * 14 + 24))
+                detailScroll.heightAnchor.constraint(equalToConstant: CGFloat(height)).isActive = true
             }
         }
         return container
@@ -1045,16 +1091,40 @@ final class ActivityPane: Pane {
         rebuild()
     }
 
+    @objc func copyOutput(_ sender: NSButton) {
+        guard let key = sender.identifier?.rawValue else { return }
+        if let card = parseCards().first(where: { $0.key == key }) {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(card.detail, forType: .string)
+        }
+    }
+
+    @objc func openCardSession(_ sender: NSButton) {
+        guard let sessionID = sender.identifier?.rawValue, !sessionID.isEmpty else { return }
+        SessionTranscriptController.open(sessionID: sessionID, title: "Agent run")
+    }
+
     func rebuild() {
-        listStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         let cards = parseCards()
         let today = Calendar.current.startOfDay(for: Date())
         let runsToday = cards.filter { $0.title == "Agent run" && $0.date >= today }
         let finished = runsToday.filter { $0.status != nil }
         let succeeded = finished.filter { $0.status == true }.count
         let lastFinished = cards.last { $0.status != nil }
-        summaryLabel.stringValue = "runs today: \(runsToday.count)  ·  succeeded: \(succeeded)/\(finished.count)  ·  latest: \(lastFinished?.subtitle ?? "—")"
+        var summary = "runs today: \(runsToday.count)  ·  succeeded: \(succeeded)/\(finished.count)  ·  latest: \(lastFinished?.subtitle ?? "—")"
+        if let live = cards.last(where: { $0.title == "Agent run" && $0.subtitle == "in progress" }) {
+            let seconds = Int(Date().timeIntervalSince(live.date))
+            summary += "  ·  running for \(seconds >= 60 ? "\(seconds / 60)m \(seconds % 60)s" : "\(seconds)s")"
+        }
+        summaryLabel.stringValue = summary
 
+        let signature = cards.map { $0.key + ($0.status.map { $0 ? "+" : "-" } ?? "?") }.joined(separator: "|")
+            + "#\(expanded.sorted().joined(separator: ","))#\(visibleCards)"
+        if signature == lastSignature { return }
+        lastSignature = signature
+
+        let origin = scroll.contentView.bounds.origin
+        listStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         let shown = cards.suffix(visibleCards)
         for card in shown.reversed() {
             let view = makeCard(card)
@@ -1066,6 +1136,8 @@ final class ActivityPane: Pane {
             earlier.bezelStyle = .rounded
             listStack.addArrangedSubview(earlier)
         }
+        scroll.contentView.scroll(to: origin)
+        scroll.reflectScrolledClipView(scroll.contentView)
     }
 
     @objc func showEarlier() {
@@ -1246,6 +1318,8 @@ extension IncrementsPane: NSTableViewDataSource, NSTableViewDelegate {
 
 final class SessionsPane: Pane {
     let table = NSTableView()
+    let search = NSSearchField()
+    var filter = ""
     var rows: [(String, String, String)] = []
 
     override func loadView() {
@@ -1264,6 +1338,17 @@ final class SessionsPane: Pane {
             stack.bottomAnchor.constraint(equalTo: root.bottomAnchor),
         ])
         stack.addArrangedSubview(makeHeader("Sessions", "OpenCode sessions for this project"))
+        let controls = NSStackView()
+        controls.orientation = .horizontal
+        controls.spacing = 10
+        search.placeholderString = "Filter sessions"
+        search.translatesAutoresizingMaskIntoConstraints = false
+        search.widthAnchor.constraint(equalToConstant: 300).isActive = true
+        search.target = self
+        search.action = #selector(filterChanged)
+        search.sendsSearchStringImmediately = true
+        controls.addArrangedSubview(search)
+        stack.addArrangedSubview(controls)
         for (title, width) in [("Title", CGFloat(460)), ("Updated", CGFloat(200)), ("Session", CGFloat(260))] {
             let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(title))
             column.title = title
@@ -1297,13 +1382,19 @@ final class SessionsPane: Pane {
         SessionTranscriptController.open(sessionID: rows[row].2, title: rows[row].0)
     }
 
+    @objc func filterChanged() {
+        filter = search.stringValue
+        refresh()
+    }
+
     override func refresh() {
         let result = run("\(home)/.opencode/bin/opencode", ["session", "list"], cwd: Prefs.project)
-        rows = result.output.split(separator: "\n").map { line in
+        let parsed = result.output.split(separator: "\n").map { line -> (String, String, String) in
             let parts = line.split(separator: "\t", maxSplits: 2).map(String.init)
             if parts.count >= 3 { return (parts[1], parts[2], parts[0]) }
             return (String(line), "", "")
         }
+        rows = filter.isEmpty ? parsed : parsed.filter { $0.0.lowercased().contains(filter.lowercased()) }
         table.reloadData()
     }
 }
@@ -1674,6 +1765,12 @@ final class SessionTranscriptController: NSObject, NSWindowDelegate {
         reload.bezelStyle = .rounded
         let copy = NSButton(title: "Copy ID", target: self, action: #selector(copyID))
         copy.bezelStyle = .rounded
+        let expandAll = NSButton(title: "Expand all", target: self, action: #selector(expandAllTapped))
+        expandAll.bezelStyle = .rounded
+        let collapseAll = NSButton(title: "Collapse all", target: self, action: #selector(collapseAllTapped))
+        collapseAll.bezelStyle = .rounded
+        header.addArrangedSubview(collapseAll)
+        header.addArrangedSubview(expandAll)
         header.addArrangedSubview(copy)
         header.addArrangedSubview(reload)
         header.translatesAutoresizingMaskIntoConstraints = false
@@ -1712,6 +1809,14 @@ final class SessionTranscriptController: NSObject, NSWindowDelegate {
     }
 
     @objc func reloadTapped() { load() }
+    @objc func expandAllTapped() {
+        expanded = Set(parts.filter { !$0.body.isEmpty }.map { $0.key })
+        render()
+    }
+    @objc func collapseAllTapped() {
+        expanded.removeAll()
+        render()
+    }
     @objc func copyID() {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(sessionID, forType: .string)
@@ -1776,8 +1881,21 @@ final class SessionTranscriptController: NSObject, NSWindowDelegate {
                         let output = (state["content"] as? [[String: Any]] ?? [])
                             .compactMap { $0["text"] as? String }.joined(separator: "\n")
                         var body = ""
-                        if let data = try? JSONSerialization.data(withJSONObject: input, options: [.prettyPrinted, .sortedKeys]),
-                           let text = String(data: data, encoding: .utf8) {
+                        if name == "edit" || name == "write" || name == "patch" {
+                            let file = (input["filePath"] as? String) ?? (input["path"] as? String) ?? ""
+                            var diff = ""
+                            if let old = input["oldString"] as? String {
+                                diff += old.split(separator: "\n", omittingEmptySubsequences: false).map { "- " + $0 }.joined(separator: "\n") + "\n"
+                            }
+                            if let new = input["newString"] as? String {
+                                diff += new.split(separator: "\n", omittingEmptySubsequences: false).map { "+ " + $0 }.joined(separator: "\n") + "\n"
+                            }
+                            if diff.isEmpty, let content = input["content"] as? String {
+                                diff = content.split(separator: "\n", omittingEmptySubsequences: false).map { "+ " + $0 }.joined(separator: "\n")
+                            }
+                            body = (file.isEmpty ? "" : file + "\n\n") + diff
+                        } else if let data = try? JSONSerialization.data(withJSONObject: input, options: [.prettyPrinted, .sortedKeys]),
+                                  let text = String(data: data, encoding: .utf8) {
                             body = text
                         }
                         if !output.isEmpty {
@@ -1892,7 +2010,12 @@ final class SessionTranscriptController: NSObject, NSWindowDelegate {
             text.isVerticallyResizable = true
             text.autoresizingMask = [.width]
             text.textContainer?.widthTracksTextView = true
-            text.string = part.body
+            text.string = ""
+            if part.monospaced {
+                text.textStorage?.setAttributedString(diffStyledText(part.body, font: text.font ?? .monospacedSystemFont(ofSize: 11, weight: .regular)))
+            } else {
+                text.string = part.body
+            }
             let size = min(360, max(60, part.body.split(separator: "\n").count * 15 + 20))
             let textScroll = NSScrollView()
             textScroll.translatesAutoresizingMaskIntoConstraints = false
