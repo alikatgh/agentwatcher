@@ -92,6 +92,10 @@ struct Prefs {
         get { defaults.object(forKey: "autoStart") == nil ? true : defaults.bool(forKey: "autoStart") }
         set { defaults.set(newValue, forKey: "autoStart") }
     }
+    static var rightPanel: Bool {
+        get { defaults.object(forKey: "rightPanel") == nil ? true : defaults.bool(forKey: "rightPanel") }
+        set { defaults.set(newValue, forKey: "rightPanel") }
+    }
     static func bannerHidden(_ key: String) -> Bool { defaults.bool(forKey: "banner." + key) }
     static func setBannerHidden(_ key: String, _ value: Bool) { defaults.set(value, forKey: "banner." + key) }
 }
@@ -2528,6 +2532,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var panes: [Pane] = []
     var current = 0
     var timer: Timer?
+    var rightPane: ChangesPane!
+    var rightPanel: NSView!
+    var rightPanelWidth: NSLayoutConstraint!
+    var showRightButton: NSButton!
+
+    @objc func toggleRightPanel() {
+        Prefs.rightPanel.toggle()
+        rightPanel.isHidden = !Prefs.rightPanel
+        showRightButton.isHidden = Prefs.rightPanel
+        rightPanelWidth.constant = Prefs.rightPanel ? 400 : 0
+        if Prefs.rightPanel { rightPane.refresh() }
+    }
 
     let sections: [Section] = [
         Section(title: "Overview", symbol: "gauge", tint: Theme.primary) { OverviewPane() },
@@ -2598,8 +2614,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         content.translatesAutoresizingMaskIntoConstraints = false
 
+        // Persistent right sidebar: the agent's live changes, always available.
+        rightPane = ChangesPane()
+        let rightHeader = NSStackView()
+        rightHeader.orientation = .horizontal
+        rightHeader.spacing = 8
+        rightHeader.addArrangedSubview(headerLabel("Changes", size: 12, weight: .semibold))
+        let rightSpacer = NSView()
+        rightSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        rightHeader.addArrangedSubview(rightSpacer)
+        let hideButton = NSButton(title: "", target: self, action: #selector(toggleRightPanel))
+        hideButton.image = NSImage(systemSymbolName: "sidebar.right", accessibilityDescription: "Hide the changes panel")
+        hideButton.isBordered = false
+        hideButton.contentTintColor = Theme.textMuted
+        hideButton.toolTip = "Hide the changes panel"
+        rightHeader.addArrangedSubview(hideButton)
+        rightHeader.translatesAutoresizingMaskIntoConstraints = false
+        let rightContainer = NSView()
+        rightContainer.translatesAutoresizingMaskIntoConstraints = false
+        rightContainer.wantsLayer = true
+        rightContainer.layer?.backgroundColor = Theme.base.cgColor
+        rightContainer.addSubview(rightHeader)
+        let rightPaneView = rightPane.view
+        rightPaneView.translatesAutoresizingMaskIntoConstraints = false
+        rightContainer.addSubview(rightPaneView)
+        NSLayoutConstraint.activate([
+            rightHeader.topAnchor.constraint(equalTo: rightContainer.topAnchor, constant: 10),
+            rightHeader.leadingAnchor.constraint(equalTo: rightContainer.leadingAnchor, constant: 14),
+            rightHeader.trailingAnchor.constraint(equalTo: rightContainer.trailingAnchor, constant: -14),
+            rightPaneView.topAnchor.constraint(equalTo: rightHeader.bottomAnchor),
+            rightPaneView.leadingAnchor.constraint(equalTo: rightContainer.leadingAnchor),
+            rightPaneView.trailingAnchor.constraint(equalTo: rightContainer.trailingAnchor),
+            rightPaneView.bottomAnchor.constraint(equalTo: rightContainer.bottomAnchor),
+        ])
+        rightPanel = rightContainer
+        showRightButton = NSButton(title: "", target: self, action: #selector(toggleRightPanel))
+        showRightButton.image = NSImage(systemSymbolName: "sidebar.right", accessibilityDescription: "Show the changes panel")
+        showRightButton.isBordered = false
+        showRightButton.contentTintColor = Theme.textMuted
+        showRightButton.toolTip = "Show the changes panel"
+        showRightButton.translatesAutoresizingMaskIntoConstraints = false
+
         root.addSubview(sidebarScroll)
         root.addSubview(content)
+        root.addSubview(rightPanel)
+        root.addSubview(showRightButton)
+        rightPanelWidth = rightPanel.widthAnchor.constraint(equalToConstant: Prefs.rightPanel ? 400 : 0)
         NSLayoutConstraint.activate([
             sidebarScroll.topAnchor.constraint(equalTo: root.topAnchor),
             sidebarScroll.bottomAnchor.constraint(equalTo: root.bottomAnchor),
@@ -2607,8 +2667,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             content.topAnchor.constraint(equalTo: root.topAnchor),
             content.bottomAnchor.constraint(equalTo: root.bottomAnchor),
             content.leadingAnchor.constraint(equalTo: sidebarScroll.trailingAnchor),
-            content.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            content.trailingAnchor.constraint(equalTo: rightPanel.leadingAnchor),
+            rightPanel.topAnchor.constraint(equalTo: root.topAnchor),
+            rightPanel.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            rightPanel.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            rightPanelWidth,
+            showRightButton.topAnchor.constraint(equalTo: root.topAnchor, constant: 12),
+            showRightButton.trailingAnchor.constraint(equalTo: rightPanel.leadingAnchor, constant: -10),
         ])
+        rightPanel.isHidden = !Prefs.rightPanel
+        showRightButton.isHidden = Prefs.rightPanel
         window.contentView = root
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -2638,6 +2706,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func refreshCurrent() {
         if panes.count > current { panes[current].refresh() }
+        if !rightPanel.isHidden { rightPane.refresh() }
     }
 }
 
