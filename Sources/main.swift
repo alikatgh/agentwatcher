@@ -1441,7 +1441,9 @@ final class ActivityPane: Pane {
 final class IncrementsPane: Pane {
     let table = NSTableView()
     let detail = NSTextView()
-    var listWidth: NSLayoutConstraint!
+    var detailPanel: NSView!
+    var detailWidth: NSLayoutConstraint!
+    let hashLabel = headerLabel("", size: 11, color: Theme.textMuted)
     var rows: [(String, String, String)] = []
     var lastCount = 0
     var currentCommit = ""
@@ -1458,16 +1460,9 @@ final class IncrementsPane: Pane {
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(equalTo: root.topAnchor),
             stack.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             stack.bottomAnchor.constraint(equalTo: root.bottomAnchor),
         ])
         stack.addArrangedSubview(makeHeader("Increments", "Click a commit to inspect it — message, files and diff"))
-
-        let columns = NSStackView()
-        columns.orientation = .horizontal
-        columns.spacing = 14
-        columns.alignment = .top
-        columns.setContentHuggingPriority(.defaultLow, for: .vertical)
 
         for (title, width) in [("Hash", CGFloat(64)), ("Increment", CGFloat(290)), ("When", CGFloat(140))] {
             let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(title))
@@ -1490,8 +1485,8 @@ final class IncrementsPane: Pane {
         listScroll.layer?.cornerRadius = 12
         listScroll.layer?.borderWidth = 1
         listScroll.layer?.borderColor = Theme.border.cgColor
-        listWidth = listScroll.widthAnchor.constraint(equalToConstant: 460)
-        listWidth.isActive = true
+        listScroll.setContentHuggingPriority(.defaultLow, for: .vertical)
+        listScroll.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
 
         detail.isEditable = false
         detail.isRichText = true
@@ -1509,18 +1504,57 @@ final class IncrementsPane: Pane {
         detailScroll.translatesAutoresizingMaskIntoConstraints = false
         detailScroll.hasVerticalScroller = true
         detailScroll.documentView = detail
-        detailScroll.wantsLayer = true
-        detailScroll.layer?.cornerRadius = 12
-        detailScroll.layer?.borderWidth = 1
-        detailScroll.layer?.borderColor = Theme.border.cgColor
+        detailScroll.drawsBackground = false
 
-        columns.addArrangedSubview(listScroll)
-        columns.addArrangedSubview(detailScroll)
-        stack.addArrangedSubview(columns)
+        stack.addArrangedSubview(listScroll)
+        listScroll.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52).isActive = true
+
+        // Right sidebar: the selected increment's details, docked like a sidebar.
+        detailPanel = NSView()
+        detailPanel.translatesAutoresizingMaskIntoConstraints = false
+        detailPanel.wantsLayer = true
+        detailPanel.layer?.backgroundColor = Theme.deep.cgColor
+        let detailHeader = NSStackView()
+        detailHeader.orientation = .horizontal
+        detailHeader.spacing = 8
+        detailHeader.translatesAutoresizingMaskIntoConstraints = false
+        detailHeader.addArrangedSubview(headerLabel("Increment", size: 11, weight: .semibold))
+        detailHeader.addArrangedSubview(hashLabel)
+        let headerSpacer = NSView()
+        headerSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        detailHeader.addArrangedSubview(headerSpacer)
+        let copyHash = NSButton(title: "", target: self, action: #selector(copyHash))
+        copyHash.image = NSImage(systemSymbolName: "doc.on.doc", accessibilityDescription: "Copy hash")
+        copyHash.isBordered = false
+        copyHash.contentTintColor = Theme.textMuted
+        copyHash.toolTip = "Copy the commit hash"
+        detailHeader.addArrangedSubview(copyHash)
+        let divider = NSBox()
+        divider.boxType = .separator
+        divider.translatesAutoresizingMaskIntoConstraints = false
+        detailPanel.addSubview(detailHeader)
+        detailPanel.addSubview(divider)
+        detailPanel.addSubview(detailScroll)
         NSLayoutConstraint.activate([
-            columns.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52),
-            listScroll.heightAnchor.constraint(equalTo: columns.heightAnchor),
-            detailScroll.heightAnchor.constraint(equalTo: columns.heightAnchor),
+            detailHeader.topAnchor.constraint(equalTo: detailPanel.topAnchor, constant: 14),
+            detailHeader.leadingAnchor.constraint(equalTo: detailPanel.leadingAnchor, constant: 14),
+            detailHeader.trailingAnchor.constraint(equalTo: detailPanel.trailingAnchor, constant: -10),
+            divider.topAnchor.constraint(equalTo: detailHeader.bottomAnchor, constant: 10),
+            divider.leadingAnchor.constraint(equalTo: detailPanel.leadingAnchor),
+            divider.trailingAnchor.constraint(equalTo: detailPanel.trailingAnchor),
+            detailScroll.topAnchor.constraint(equalTo: divider.bottomAnchor),
+            detailScroll.leadingAnchor.constraint(equalTo: detailPanel.leadingAnchor),
+            detailScroll.trailingAnchor.constraint(equalTo: detailPanel.trailingAnchor),
+            detailScroll.bottomAnchor.constraint(equalTo: detailPanel.bottomAnchor),
+        ])
+        root.addSubview(detailPanel)
+        detailWidth = detailPanel.widthAnchor.constraint(equalToConstant: 420)
+        NSLayoutConstraint.activate([
+            stack.trailingAnchor.constraint(equalTo: detailPanel.leadingAnchor),
+            detailPanel.topAnchor.constraint(equalTo: root.topAnchor),
+            detailPanel.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            detailPanel.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            detailWidth,
         ])
         addBanner(stack, key: "increments", text: "Every committed work increment, newest first. Click a row to see the message, the changed files and the full diff right here.")
         view = root
@@ -1528,8 +1562,15 @@ final class IncrementsPane: Pane {
 
     override func viewDidLayout() {
         super.viewDidLayout()
-        let available = view.bounds.width - 92
-        listWidth.constant = max(300, min(520, available * 0.46))
+        let showSidebar = view.bounds.width > 760
+        detailPanel.isHidden = !showSidebar
+        detailWidth.constant = showSidebar ? 420 : 0
+    }
+
+    @objc func copyHash() {
+        guard !currentCommit.isEmpty else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(currentCommit, forType: .string)
     }
 
     @objc func openCommit() {
@@ -1546,6 +1587,7 @@ final class IncrementsPane: Pane {
         let hash = rows[row].0
         if hash == currentCommit { return }
         currentCommit = hash
+        hashLabel.stringValue = hash
         let result = run("/usr/bin/git", ["-C", Prefs.project, "show", "--stat", "--patch",
                                           "--format=commit %h%nAuthor: %an <%ae>%nDate:   %ad%n%n%s%n%n%b", hash])
         var text = result.output
