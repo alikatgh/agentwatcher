@@ -214,11 +214,11 @@ struct AgentStatus {
         return "Stopped"
     }
     var color: NSColor {
-        if blocked { return .systemRed }
-        if running && pausing { return .systemOrange }
-        if running { return .systemGreen }
-        if pausing { return .systemYellow }
-        return .systemGray
+        if blocked { return Theme.danger }
+        if running && pausing { return Theme.warning }
+        if running { return Theme.success }
+        if pausing { return Theme.warning }
+        return Theme.textMuted
     }
     static func current() -> AgentStatus {
         var status = AgentStatus()
@@ -306,13 +306,13 @@ func diffStyledText(_ text: String, font: NSFont) -> NSAttributedString {
     let attributed = NSMutableAttributedString()
     for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
         let value = String(line) + "\n"
-        var color = NSColor(calibratedWhite: 0.86, alpha: 1)
+        var color = Theme.textBase
         if (value.hasPrefix("+ ") || value.hasPrefix("+")) && !value.hasPrefix("+++") {
-            color = .systemGreen
+            color = Theme.success
         } else if (value.hasPrefix("- ") || value.hasPrefix("-")) && !value.hasPrefix("---") {
-            color = .systemRed
+            color = Theme.danger
         } else if value.hasPrefix("@@") {
-            color = .systemTeal
+            color = Theme.primary
         }
         attributed.append(NSAttributedString(string: value, attributes: [.foregroundColor: color, .font: font]))
     }
@@ -322,7 +322,7 @@ func diffStyledText(_ text: String, font: NSFont) -> NSAttributedString {
 // MARK: - Small views
 
 final class PulseDot: NSView {
-    var color: NSColor = .systemGreen { didSet { needsDisplay = true } }
+    var color: NSColor = Theme.success { didSet { needsDisplay = true } }
     private var phase: CGFloat = 0
     private var timer: Timer?
     override init(frame: NSRect) {
@@ -353,10 +353,10 @@ final class CardView: NSView {
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
-        layer?.backgroundColor = NSColor(calibratedWhite: 0.13, alpha: 1).cgColor
+        layer?.backgroundColor = Theme.layer01.cgColor
         layer?.cornerRadius = 12
         layer?.borderWidth = 1
-        layer?.borderColor = NSColor(calibratedWhite: 0.24, alpha: 1).cgColor
+        layer?.borderColor = Theme.border.cgColor
     }
     required init?(coder: NSCoder) { fatalError() }
 }
@@ -367,22 +367,22 @@ final class InfoBanner: NSView {
         super.init(frame: .zero)
         self.key = key
         wantsLayer = true
-        layer?.backgroundColor = NSColor(calibratedWhite: 0.17, alpha: 1).cgColor
+        layer?.backgroundColor = Theme.layer01.cgColor
         layer?.cornerRadius = 10
         layer?.borderWidth = 1
-        layer?.borderColor = NSColor(calibratedWhite: 0.27, alpha: 1).cgColor
+        layer?.borderColor = Theme.border.cgColor
         let icon = NSImageView()
         icon.image = NSImage(systemSymbolName: "info.circle", accessibilityDescription: nil)
-        icon.contentTintColor = .systemTeal
+        icon.contentTintColor = Theme.primary
         icon.translatesAutoresizingMaskIntoConstraints = false
         let label = NSTextField(wrappingLabelWithString: text)
         label.font = .systemFont(ofSize: 11)
-        label.textColor = .secondaryLabelColor
+        label.textColor = Theme.textMuted
         label.translatesAutoresizingMaskIntoConstraints = false
         let close = NSButton(title: "", target: self, action: #selector(closeTapped))
         close.image = NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: "Hide explanation")
         close.isBordered = false
-        close.contentTintColor = .tertiaryLabelColor
+        close.contentTintColor = Theme.textFaint
         close.toolTip = "Hide this explanation"
         close.translatesAutoresizingMaskIntoConstraints = false
         addSubview(icon)
@@ -413,15 +413,15 @@ final class LiveBadge: NSView {
     init() {
         super.init(frame: .zero)
         wantsLayer = true
-        layer?.backgroundColor = NSColor.systemRed.withAlphaComponent(0.18).cgColor
+        layer?.backgroundColor = Theme.danger.withAlphaComponent(0.18).cgColor
         layer?.cornerRadius = 9
         let label = NSTextField(labelWithString: "LIVE")
         label.font = .systemFont(ofSize: 10, weight: .bold)
-        label.textColor = .systemRed
+        label.textColor = Theme.danger
         label.translatesAutoresizingMaskIntoConstraints = false
         let dot = NSView()
         dot.wantsLayer = true
-        dot.layer?.backgroundColor = NSColor.systemRed.cgColor
+        dot.layer?.backgroundColor = Theme.danger.cgColor
         dot.layer?.cornerRadius = 4
         dot.translatesAutoresizingMaskIntoConstraints = false
         let blink = CABasicAnimation(keyPath: "opacity")
@@ -481,7 +481,7 @@ final class LineChartView: NSView {
         let rows = 3
         for row in 0...rows {
             let y = h * CGFloat(row) / CGFloat(rows)
-            NSColor(calibratedWhite: 0.30, alpha: 0.35).setStroke()
+            Theme.border.setStroke()
             let path = NSBezierPath()
             path.move(to: NSPoint(x: 0, y: y))
             path.line(to: NSPoint(x: w, y: y))
@@ -494,7 +494,7 @@ final class LineChartView: NSView {
         guard count > 1 else { return }
         let labelAttrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 10),
-            .foregroundColor: NSColor.secondaryLabelColor,
+            .foregroundColor: Theme.textMuted,
         ]
         String(format: "%.0f", maxValue).draw(at: NSPoint(x: 4, y: h - 14), withAttributes: labelAttrs)
         "0".draw(at: NSPoint(x: 4, y: 4), withAttributes: labelAttrs)
@@ -551,7 +551,7 @@ protocol Refreshable: AnyObject {
     func refresh()
 }
 
-func headerLabel(_ text: String, size: CGFloat, weight: NSFont.Weight = .regular, color: NSColor = .labelColor) -> NSTextField {
+func headerLabel(_ text: String, size: CGFloat, weight: NSFont.Weight = .regular, color: NSColor = Theme.textBase) -> NSTextField {
     let field = NSTextField(labelWithString: text)
     field.font = .systemFont(ofSize: size, weight: weight)
     field.textColor = color
@@ -575,7 +575,7 @@ class Pane: NSViewController, Refreshable {
         stack.alignment = .leading
         stack.spacing = 2
         stack.addArrangedSubview(headerLabel(title, size: 22, weight: .bold))
-        stack.addArrangedSubview(headerLabel(subtitle, size: 12, color: .secondaryLabelColor))
+        stack.addArrangedSubview(headerLabel(subtitle, size: 12, color: Theme.textMuted))
         return stack
     }
 }
@@ -585,10 +585,10 @@ final class OverviewPane: Pane {
     let statusLabel = headerLabel("", size: 13, weight: .semibold)
     let spinner = NSProgressIndicator()
     let metricLabel = headerLabel("0", size: 44, weight: .bold)
-    let deltaLabel = headerLabel("", size: 15, weight: .semibold, color: .systemGreen)
-    let metricSub = headerLabel("", size: 12, color: .secondaryLabelColor)
+    let deltaLabel = headerLabel("", size: 15, weight: .semibold, color: Theme.success)
+    let metricSub = headerLabel("", size: 12, color: Theme.textMuted)
     let chart = LineChartView()
-    let chartUpdated = headerLabel("", size: 11, color: .secondaryLabelColor)
+    let chartUpdated = headerLabel("", size: 11, color: Theme.textMuted)
     let recentStack = NSStackView()
     let startButton = NSButton(title: "Start", target: nil, action: nil)
     let pauseButton = NSButton(title: "Pause", target: nil, action: nil)
@@ -636,13 +636,13 @@ final class OverviewPane: Pane {
         statusDot.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(goActivity)))
         stack.addArrangedSubview(headline)
         stack.addArrangedSubview(metricSub)
-        stack.addArrangedSubview(headerLabel("Agent activity", size: 12, weight: .semibold, color: .secondaryLabelColor))
+        stack.addArrangedSubview(headerLabel("Agent activity", size: 12, weight: .semibold, color: Theme.textMuted))
 
         let controls = NSStackView()
         controls.orientation = .horizontal
         controls.spacing = 10
-        styleChip(chipIncrements, title: "Increments", color: .systemTeal)
-        styleChip(chipRuns, title: "Runs", color: .systemBlue)
+        styleChip(chipIncrements, title: "Increments", color: Theme.primary)
+        styleChip(chipRuns, title: "Runs", color: Theme.accent)
         chipIncrements.target = self
         chipIncrements.action = #selector(chipToggled)
         chipRuns.target = self
@@ -740,7 +740,7 @@ final class OverviewPane: Pane {
             .font: NSFont.systemFont(ofSize: 12, weight: .semibold),
         ])
         attributed.append(NSAttributedString(string: title, attributes: [
-            .foregroundColor: NSColor.labelColor,
+            .foregroundColor: Theme.textBase,
             .font: NSFont.systemFont(ofSize: 12, weight: .medium),
         ]))
         button.attributedTitle = attributed
@@ -818,16 +818,16 @@ final class OverviewPane: Pane {
         metricLabel.stringValue = "\(todayCount)"
         let diff = todayCount - yesterdayCount
         deltaLabel.stringValue = "\(diff >= 0 ? "+" : "")\(diff) vs yesterday"
-        deltaLabel.textColor = diff >= 0 ? .systemGreen : .systemRed
+        deltaLabel.textColor = diff >= 0 ? Theme.success : Theme.danger
         let stamp = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
         metricSub.stringValue = "increments landed today  ·  updated \(stamp)"
         chartUpdated.stringValue = "updated \(stamp)"
 
         let data = buckets(rangeControl.selectedSegment)
         chart.series = [
-            LineChartView.Series(name: "Increments", color: .systemTeal,
+            LineChartView.Series(name: "Increments", color: Theme.primary,
                                  values: data.commits, visible: chipIncrements.state == .on),
-            LineChartView.Series(name: "Runs", color: .systemBlue,
+            LineChartView.Series(name: "Runs", color: Theme.accent,
                                  values: data.runs, visible: chipRuns.state == .on),
         ]
         chart.needsDisplay = true
@@ -840,7 +840,7 @@ final class OverviewPane: Pane {
             let button = NSButton(title: "\(parts[0])  \(parts[1])  (\(parts[2]))", target: self, action: #selector(openRecent(_:)))
             button.isBordered = false
             button.alignment = .left
-            button.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+            button.font = Theme.codeFont(11)
             button.toolTip = "Open \(parts[0]) on GitHub"
             button.identifier = NSUserInterfaceItemIdentifier(parts[0])
             recentStack.addArrangedSubview(button)
@@ -863,7 +863,7 @@ final class ActivityPane: Pane {
 
     let scroll = NSScrollView()
     let listStack = NSStackView()
-    let summaryLabel = headerLabel("", size: 12, color: .secondaryLabelColor)
+    let summaryLabel = headerLabel("", size: 12, color: Theme.textMuted)
     var expanded = Set<String>()
     var visibleCards = 12
     var lastSignature = ""
@@ -908,7 +908,7 @@ final class ActivityPane: Pane {
         scroll.wantsLayer = true
         scroll.layer?.cornerRadius = 12
         scroll.layer?.borderWidth = 1
-        scroll.layer?.borderColor = NSColor(calibratedWhite: 0.24, alpha: 1).cgColor
+        scroll.layer?.borderColor = Theme.border.cgColor
         stack.addArrangedSubview(scroll)
         NSLayoutConstraint.activate([
             scroll.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52),
@@ -1030,13 +1030,13 @@ final class ActivityPane: Pane {
         let symbol: String
         let tint: NSColor
         if let ok = card.status, ok {
-            symbol = "checkmark.circle.fill"; tint = .systemGreen
+            symbol = "checkmark.circle.fill"; tint = Theme.success
         } else if let ok = card.status, !ok {
-            symbol = "xmark.circle.fill"; tint = .systemRed
+            symbol = "xmark.circle.fill"; tint = Theme.danger
         } else if card.subtitle == "in progress" {
-            symbol = "circle.dotted"; tint = .systemOrange
+            symbol = "circle.dotted"; tint = Theme.warning
         } else {
-            symbol = "circle.fill"; tint = .systemTeal
+            symbol = "circle.fill"; tint = Theme.primary
         }
         let icon = NSImageView()
         icon.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
@@ -1045,13 +1045,13 @@ final class ActivityPane: Pane {
         icon.widthAnchor.constraint(equalToConstant: 16).isActive = true
         let title = headerLabel(card.title, size: 13, weight: .semibold)
         let time = headerLabel(DateFormatter.localizedString(from: card.date, dateStyle: .none, timeStyle: .medium),
-                                size: 11, color: .secondaryLabelColor)
+                                size: 11, color: Theme.textMuted)
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         header.addArrangedSubview(icon)
         header.addArrangedSubview(title)
         if !card.subtitle.isEmpty {
-            header.addArrangedSubview(headerLabel("· \(card.subtitle)", size: 11, color: .secondaryLabelColor))
+            header.addArrangedSubview(headerLabel("· \(card.subtitle)", size: 11, color: Theme.textMuted))
         }
         header.addArrangedSubview(spacer)
         header.addArrangedSubview(time)
@@ -1061,7 +1061,7 @@ final class ActivityPane: Pane {
         if !card.detail.isEmpty {
             let lines = card.detail.split(separator: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
             let preview = lines.first.map { String($0.prefix(130)) } ?? ""
-            let previewLabel = headerLabel(preview.isEmpty ? " " : preview, size: 11, color: .tertiaryLabelColor)
+            let previewLabel = headerLabel(preview.isEmpty ? " " : preview, size: 11, color: Theme.textFaint)
             previewLabel.lineBreakMode = .byTruncatingTail
             stack.addArrangedSubview(previewLabel)
             previewLabel.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -28).isActive = true
@@ -1073,13 +1073,13 @@ final class ActivityPane: Pane {
             let toggle = NSButton(title: isExpanded ? "Hide details" : "Show details", target: self, action: #selector(toggleDetails(_:)))
             toggle.isBordered = false
             toggle.font = .systemFont(ofSize: 11, weight: .medium)
-            toggle.contentTintColor = .systemTeal
+            toggle.contentTintColor = Theme.primary
             toggle.identifier = NSUserInterfaceItemIdentifier(card.key)
             actions.addArrangedSubview(toggle)
             let copy = NSButton(title: "Copy output", target: self, action: #selector(copyOutput(_:)))
             copy.isBordered = false
             copy.font = .systemFont(ofSize: 11, weight: .medium)
-            copy.contentTintColor = .secondaryLabelColor
+            copy.contentTintColor = Theme.textMuted
             copy.identifier = NSUserInterfaceItemIdentifier(card.key)
             actions.addArrangedSubview(copy)
             if let sessionLine = card.detail.split(separator: "\n").first(where: { $0.hasPrefix("session: ") }) {
@@ -1087,7 +1087,7 @@ final class ActivityPane: Pane {
                 let open = NSButton(title: "Open transcript", target: self, action: #selector(openCardSession(_:)))
                 open.isBordered = false
                 open.font = .systemFont(ofSize: 11, weight: .medium)
-                open.contentTintColor = .systemBlue
+                open.contentTintColor = Theme.accent
                 open.identifier = NSUserInterfaceItemIdentifier(sessionID)
                 actions.addArrangedSubview(open)
             }
@@ -1098,9 +1098,9 @@ final class ActivityPane: Pane {
                 detail.isEditable = false
                 detail.isRichText = false
                 detail.drawsBackground = true
-                detail.backgroundColor = NSColor(calibratedWhite: 0.08, alpha: 1)
-                detail.textColor = NSColor(calibratedWhite: 0.85, alpha: 1)
-                detail.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
+                detail.backgroundColor = Theme.deep
+                detail.textColor = Theme.textBase
+                detail.font = Theme.codeFont(10)
                 detail.textContainerInset = NSSize(width: 8, height: 8)
                 detail.frame = NSRect(x: 0, y: 0, width: 700, height: 200)
                 detail.isVerticallyResizable = true
@@ -1114,7 +1114,7 @@ final class ActivityPane: Pane {
                 detailScroll.wantsLayer = true
                 detailScroll.layer?.cornerRadius = 8
                 detailScroll.layer?.borderWidth = 1
-                detailScroll.layer?.borderColor = NSColor(calibratedWhite: 0.22, alpha: 1).cgColor
+                detailScroll.layer?.borderColor = Theme.borderMuted.cgColor
                 stack.addArrangedSubview(detailScroll)
                 detailScroll.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -28).isActive = true
                 let lineCount = card.detail.split(separator: "\n").count
@@ -1244,13 +1244,13 @@ final class IncrementsPane: Pane {
         listScroll.wantsLayer = true
         listScroll.layer?.cornerRadius = 12
         listScroll.layer?.borderWidth = 1
-        listScroll.layer?.borderColor = NSColor(calibratedWhite: 0.24, alpha: 1).cgColor
+        listScroll.layer?.borderColor = Theme.border.cgColor
         listScroll.widthAnchor.constraint(equalToConstant: 500).isActive = true
 
         detail.isEditable = false
         detail.isRichText = true
         detail.drawsBackground = true
-        detail.backgroundColor = NSColor(calibratedWhite: 0.10, alpha: 1)
+        detail.backgroundColor = Theme.deep
         detail.textContainerInset = NSSize(width: 12, height: 12)
         detail.frame = NSRect(x: 0, y: 0, width: 600, height: 400)
         detail.isVerticallyResizable = true
@@ -1266,7 +1266,7 @@ final class IncrementsPane: Pane {
         detailScroll.wantsLayer = true
         detailScroll.layer?.cornerRadius = 12
         detailScroll.layer?.borderWidth = 1
-        detailScroll.layer?.borderColor = NSColor(calibratedWhite: 0.24, alpha: 1).cgColor
+        detailScroll.layer?.borderColor = Theme.border.cgColor
 
         columns.addArrangedSubview(listScroll)
         columns.addArrangedSubview(detailScroll)
@@ -1296,18 +1296,18 @@ final class IncrementsPane: Pane {
         var text = result.output
         if text.count > 160000 { text = String(text.prefix(160000)) + "\n… output truncated …\n" }
         let attributed = NSMutableAttributedString()
-        let base = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
+        let base = Theme.codeFont(11)
         let strong = NSFont.monospacedSystemFont(ofSize: 11, weight: .semibold)
         for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
             let value = String(line) + "\n"
-            var color = NSColor(calibratedWhite: 0.85, alpha: 1)
+            var color = Theme.textBase
             var font = base
             if value.hasPrefix("+") && !value.hasPrefix("+++") {
-                color = .systemGreen
+                color = Theme.success
             } else if value.hasPrefix("-") && !value.hasPrefix("---") {
-                color = .systemRed
+                color = Theme.danger
             } else if value.hasPrefix("@@") {
-                color = .systemTeal
+                color = Theme.primary
             } else if value.hasPrefix("commit ") || value.hasPrefix("Author:") || value.hasPrefix("Date:") || value.hasPrefix("diff --git") {
                 font = strong
             }
@@ -1341,7 +1341,7 @@ extension IncrementsPane: NSTableViewDataSource, NSTableViewDelegate {
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         let cell = NSTableCellView()
         let field = NSTextField(labelWithString: "")
-        field.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+        field.font = Theme.codeFont(12)
         field.lineBreakMode = .byTruncatingTail
         field.translatesAutoresizingMaskIntoConstraints = false
         cell.addSubview(field)
@@ -1410,7 +1410,7 @@ final class SessionsPane: Pane {
         scroll.wantsLayer = true
         scroll.layer?.cornerRadius = 12
         scroll.layer?.borderWidth = 1
-        scroll.layer?.borderColor = NSColor(calibratedWhite: 0.24, alpha: 1).cgColor
+        scroll.layer?.borderColor = Theme.border.cgColor
         stack.addArrangedSubview(scroll)
         scroll.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52).isActive = true
         table.target = self
@@ -1469,7 +1469,7 @@ extension SessionsPane: NSTableViewDataSource, NSTableViewDelegate {
 
 final class LivePane: Pane, WKNavigationDelegate {
     let web = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
-    let stateLabel = headerLabel("Connecting…", size: 12, color: .secondaryLabelColor)
+    let stateLabel = headerLabel("Connecting…", size: 12, color: Theme.textMuted)
     var credential: URLCredential?
     var loaded = false
 
@@ -1550,10 +1550,10 @@ final class SettingsPane: Pane {
     let projectField = NSTextField()
     let workerField = NSTextField()
     let stateField = NSTextField()
-    let projectSource = headerLabel("", size: 10, color: .tertiaryLabelColor)
-    let workerSource = headerLabel("", size: 10, color: .tertiaryLabelColor)
-    let stateSource = headerLabel("", size: 10, color: .tertiaryLabelColor)
-    let infoLabel = headerLabel("", size: 11, color: .secondaryLabelColor)
+    let projectSource = headerLabel("", size: 10, color: Theme.textFaint)
+    let workerSource = headerLabel("", size: 10, color: Theme.textFaint)
+    let stateSource = headerLabel("", size: 10, color: Theme.textFaint)
+    let infoLabel = headerLabel("", size: 11, color: Theme.textMuted)
     let autoStartBox = NSButton(checkboxWithTitle: "Start work automatically when AgentWatcher opens",
                                 target: nil, action: nil)
 
@@ -1580,7 +1580,7 @@ final class SettingsPane: Pane {
         for (title, field, source) in fields {
             stack.addArrangedSubview(headerLabel(title, size: 12, weight: .semibold))
             field.translatesAutoresizingMaskIntoConstraints = false
-            field.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+            field.font = Theme.codeFont(12)
             field.target = self
             field.action = #selector(fieldChanged)
             field.toolTip = "Changes apply immediately"
@@ -1642,7 +1642,7 @@ final class ProcessesPane: Pane {
         var command: String
     }
     let table = NSTableView()
-    let infoLabel = headerLabel("", size: 11, color: .secondaryLabelColor)
+    let infoLabel = headerLabel("", size: 11, color: Theme.textMuted)
     var rows: [ProcessRow] = []
 
     override func loadView() {
@@ -1679,7 +1679,7 @@ final class ProcessesPane: Pane {
         scroll.wantsLayer = true
         scroll.layer?.cornerRadius = 12
         scroll.layer?.borderWidth = 1
-        scroll.layer?.borderColor = NSColor(calibratedWhite: 0.24, alpha: 1).cgColor
+        scroll.layer?.borderColor = Theme.border.cgColor
         stack.addArrangedSubview(scroll)
         scroll.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52).isActive = true
         let controls = NSStackView()
@@ -1727,7 +1727,7 @@ extension ProcessesPane: NSTableViewDataSource, NSTableViewDelegate {
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         let cell = NSTableCellView()
         let field = NSTextField(labelWithString: "")
-        field.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+        field.font = Theme.codeFont(11)
         field.lineBreakMode = .byTruncatingTail
         field.translatesAutoresizingMaskIntoConstraints = false
         cell.addSubview(field)
@@ -1755,7 +1755,7 @@ final class SessionTranscriptController: NSObject, NSWindowDelegate {
     let scroll = NSScrollView()
     let stack = NSStackView()
     let titleLabel = NSTextField(labelWithString: "")
-    let statusLabel = headerLabel("Loading transcript…", size: 11, color: .secondaryLabelColor)
+    let statusLabel = headerLabel("Loading transcript…", size: 11, color: Theme.textMuted)
     let sessionID: String
     var expanded = Set<String>()
     var parts: [(key: String, kind: String, title: String, subtitle: String, body: String, tint: NSColor, monospaced: Bool, openByDefault: Bool)] = []
@@ -1881,7 +1881,7 @@ final class SessionTranscriptController: NSObject, NSWindowDelegate {
             if type == "user" {
                 let text = message["text"] as? String ?? ""
                 parts.append((key: "u\(counter)", kind: "user", title: "You", subtitle: firstLine(text),
-                              body: text, tint: .systemBlue, monospaced: false, openByDefault: true))
+                              body: text, tint: Theme.accent, monospaced: false, openByDefault: true))
                 counter += 1
             } else {
                 for part in message["content"] as? [[String: Any]] ?? [] {
@@ -1889,11 +1889,11 @@ final class SessionTranscriptController: NSObject, NSWindowDelegate {
                     if kind == "text" {
                         let text = part["text"] as? String ?? ""
                         parts.append((key: "a\(counter)", kind: "text", title: "Agent", subtitle: firstLine(text),
-                                      body: text, tint: .systemTeal, monospaced: false, openByDefault: true))
+                                      body: text, tint: Theme.primary, monospaced: false, openByDefault: true))
                     } else if kind == "reasoning" {
                         let text = part["text"] as? String ?? ""
                         parts.append((key: "r\(counter)", kind: "reasoning", title: "Thinking", subtitle: firstLine(text),
-                                      body: text, tint: .systemPurple, monospaced: false, openByDefault: false))
+                                      body: text, tint: Theme.writer, monospaced: false, openByDefault: false))
                     } else if kind == "tool" {
                         let name = part["name"] as? String ?? "tool"
                         let state = part["state"] as? [String: Any] ?? [:]
@@ -1910,7 +1910,7 @@ final class SessionTranscriptController: NSObject, NSWindowDelegate {
                             body += "\n\n── output ──\n" + output
                         }
                         if body.count > 9000 { body = String(body.prefix(9000)) + "\n… truncated …" }
-                        let tint: NSColor = status == "completed" ? .systemGreen : (status == "failed" ? .systemRed : .systemOrange)
+                        let tint: NSColor = status == "completed" ? Theme.success : (status == "failed" ? Theme.danger : Theme.warning)
                         parts.append((key: "t\(counter)", kind: "tool", title: name,
                                       subtitle: summarize(name: name, input: input),
                                       body: body, tint: tint, monospaced: true, openByDefault: false))
@@ -1985,7 +1985,7 @@ final class SessionTranscriptController: NSObject, NSWindowDelegate {
         header.addArrangedSubview(icon)
         header.addArrangedSubview(headerLabel(part.title, size: 12, weight: .semibold))
         if !part.subtitle.isEmpty {
-            let subtitle = headerLabel(part.subtitle, size: 11, color: .secondaryLabelColor)
+            let subtitle = headerLabel(part.subtitle, size: 11, color: Theme.textMuted)
             subtitle.lineBreakMode = .byTruncatingTail
             header.addArrangedSubview(subtitle)
         }
@@ -1996,7 +1996,7 @@ final class SessionTranscriptController: NSObject, NSWindowDelegate {
             let toggle = NSButton(title: open ? "Hide" : "Show", target: self, action: #selector(togglePart(_:)))
             toggle.isBordered = false
             toggle.font = .systemFont(ofSize: 11, weight: .medium)
-            toggle.contentTintColor = .secondaryLabelColor
+            toggle.contentTintColor = Theme.textMuted
             toggle.identifier = NSUserInterfaceItemIdentifier(part.key)
             header.addArrangedSubview(toggle)
         }
@@ -2008,10 +2008,10 @@ final class SessionTranscriptController: NSObject, NSWindowDelegate {
             text.isEditable = false
             text.isRichText = false
             text.drawsBackground = true
-            text.backgroundColor = NSColor(calibratedWhite: 0.08, alpha: 1)
-            text.textColor = NSColor(calibratedWhite: 0.86, alpha: 1)
+            text.backgroundColor = Theme.deep
+            text.textColor = Theme.textBase
             text.font = part.monospaced
-                ? .monospacedSystemFont(ofSize: 11, weight: .regular)
+                ? Theme.codeFont(11)
                 : .systemFont(ofSize: 12)
             text.textContainerInset = NSSize(width: 8, height: 8)
             text.frame = NSRect(x: 0, y: 0, width: 800, height: 160)
@@ -2027,7 +2027,7 @@ final class SessionTranscriptController: NSObject, NSWindowDelegate {
             textScroll.wantsLayer = true
             textScroll.layer?.cornerRadius = 8
             textScroll.layer?.borderWidth = 1
-            textScroll.layer?.borderColor = NSColor(calibratedWhite: 0.22, alpha: 1).cgColor
+            textScroll.layer?.borderColor = Theme.borderMuted.cgColor
             inner.addArrangedSubview(textScroll)
             textScroll.widthAnchor.constraint(equalTo: inner.widthAnchor, constant: -24).isActive = true
             textScroll.heightAnchor.constraint(equalToConstant: CGFloat(size)).isActive = true
@@ -2040,7 +2040,7 @@ final class SessionTranscriptController: NSObject, NSWindowDelegate {
 final class GitHubPane: Pane, WKNavigationDelegate {
     static weak var shared: GitHubPane?
     let web = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
-    let stateLabel = headerLabel("", size: 11, color: .secondaryLabelColor)
+    let stateLabel = headerLabel("", size: 11, color: Theme.textMuted)
     let picker = NSSegmentedControl(labels: ["Code", "Commits", "PRs", "Issues", "Actions"],
                                     trackingMode: .selectOne, target: nil, action: nil)
     var base: String?
@@ -2180,14 +2180,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var timer: Timer?
 
     let sections: [Section] = [
-        Section(title: "Overview", symbol: "gauge", tint: .systemTeal) { OverviewPane() },
-        Section(title: "Live Activity", symbol: "waveform.path.ecg", tint: .systemBlue) { ActivityPane() },
-        Section(title: "Processes", symbol: "cpu", tint: .systemPink) { ProcessesPane() },
-        Section(title: "Increments", symbol: "checklist", tint: .systemGreen) { IncrementsPane() },
-        Section(title: "Sessions", symbol: "bubble.left.and.bubble.right", tint: .systemPurple) { SessionsPane() },
-        Section(title: "Live Sessions", symbol: "globe", tint: .systemOrange) { LivePane() },
-        Section(title: "GitHub", symbol: "arrow.triangle.branch", tint: .systemIndigo) { GitHubPane(nibName: nil, bundle: nil) },
-        Section(title: "Settings", symbol: "gearshape", tint: .systemGray) { SettingsPane() },
+        Section(title: "Overview", symbol: "gauge", tint: Theme.primary) { OverviewPane() },
+        Section(title: "Live Activity", symbol: "waveform.path.ecg", tint: Theme.accent) { ActivityPane() },
+        Section(title: "Processes", symbol: "cpu", tint: Theme.plan) { ProcessesPane() },
+        Section(title: "Increments", symbol: "checklist", tint: Theme.success) { IncrementsPane() },
+        Section(title: "Sessions", symbol: "bubble.left.and.bubble.right", tint: Theme.writer) { SessionsPane() },
+        Section(title: "Live Sessions", symbol: "globe", tint: Theme.warning) { LivePane() },
+        Section(title: "GitHub", symbol: "arrow.triangle.branch", tint: Theme.accentStrong) { GitHubPane(nibName: nil, bundle: nil) },
+        Section(title: "Settings", symbol: "gearshape", tint: Theme.textMuted) { SettingsPane() },
     ]
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -2223,6 +2223,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                           styleMask: [.titled, .closable, .miniaturizable, .resizable],
                           backing: .buffered, defer: false)
         window.title = "AgentWatcher"
+        window.backgroundColor = Theme.base
         window.appearance = NSAppearance(named: .darkAqua)
         window.minSize = NSSize(width: 900, height: 600)
         window.center()
