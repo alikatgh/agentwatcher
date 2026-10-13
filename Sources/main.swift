@@ -92,9 +92,9 @@ struct Prefs {
         get { defaults.object(forKey: "autoStart") == nil ? true : defaults.bool(forKey: "autoStart") }
         set { defaults.set(newValue, forKey: "autoStart") }
     }
-    static var rightPanel: Bool {
-        get { defaults.object(forKey: "rightPanel") == nil ? true : defaults.bool(forKey: "rightPanel") }
-        set { defaults.set(newValue, forKey: "rightPanel") }
+    static var sidebarVisible: Bool {
+        get { defaults.object(forKey: "sidebarVisible") == nil ? true : defaults.bool(forKey: "sidebarVisible") }
+        set { defaults.set(newValue, forKey: "sidebarVisible") }
     }
     static func bannerHidden(_ key: String) -> Bool { defaults.bool(forKey: "banner." + key) }
     static func setBannerHidden(_ key: String, _ value: Bool) { defaults.set(value, forKey: "banner." + key) }
@@ -1441,6 +1441,7 @@ final class ActivityPane: Pane {
 final class IncrementsPane: Pane {
     let table = NSTableView()
     let detail = NSTextView()
+    var listWidth: NSLayoutConstraint!
     var rows: [(String, String, String)] = []
     var lastCount = 0
     var currentCommit = ""
@@ -1468,7 +1469,7 @@ final class IncrementsPane: Pane {
         columns.alignment = .top
         columns.setContentHuggingPriority(.defaultLow, for: .vertical)
 
-        for (title, width) in [("Hash", CGFloat(64)), ("Increment", CGFloat(300)), ("When", CGFloat(110))] {
+        for (title, width) in [("Hash", CGFloat(64)), ("Increment", CGFloat(290)), ("When", CGFloat(140))] {
             let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(title))
             column.title = title
             column.width = width
@@ -1489,7 +1490,8 @@ final class IncrementsPane: Pane {
         listScroll.layer?.cornerRadius = 12
         listScroll.layer?.borderWidth = 1
         listScroll.layer?.borderColor = Theme.border.cgColor
-        listScroll.widthAnchor.constraint(equalToConstant: 500).isActive = true
+        listWidth = listScroll.widthAnchor.constraint(equalToConstant: 460)
+        listWidth.isActive = true
 
         detail.isEditable = false
         detail.isRichText = true
@@ -1522,6 +1524,12 @@ final class IncrementsPane: Pane {
         ])
         addBanner(stack, key: "increments", text: "Every committed work increment, newest first. Click a row to see the message, the changed files and the full diff right here.")
         view = root
+    }
+
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        let available = view.bounds.width - 92
+        listWidth.constant = max(300, min(520, available * 0.46))
     }
 
     @objc func openCommit() {
@@ -1714,11 +1722,17 @@ extension SessionsPane: NSTableViewDataSource, NSTableViewDelegate {
     }
 }
 
-final class LivePane: Pane, WKNavigationDelegate {
-    let web = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
-    let stateLabel = headerLabel("Connecting…", size: 12, color: Theme.textMuted)
-    var credential: URLCredential?
-    var loaded = false
+final class LivePane: Pane {
+    let dot = NSView()
+    let stateLabel = headerLabel("Checking…", size: 12, color: Theme.textMuted)
+    let serverLabel = headerLabel("", size: 11, color: Theme.textFaint)
+    let currentTitle = headerLabel("", size: 13, weight: .semibold)
+    let currentDetail = headerLabel("", size: 11, color: Theme.textMuted)
+    let sessionsTable = NSTableView()
+    var sessionRows: [(String, String, String)] = []
+    var currentSessionID = ""
+    var lastServiceCheck = Date.distantPast
+    var lastSessionLoad = Date.distantPast
 
     override func loadView() {
         let root = NSView()
@@ -1735,61 +1749,191 @@ final class LivePane: Pane, WKNavigationDelegate {
             stack.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             stack.bottomAnchor.constraint(equalTo: root.bottomAnchor),
         ])
-        stack.addArrangedSubview(makeHeader("Live Sessions", "The full OpenCode interface, embedded"))
+        stack.addArrangedSubview(makeHeader("Live Sessions", "The running OpenCode service — watched natively"))
+
         let controls = NSStackView()
         controls.orientation = .horizontal
-        controls.spacing = 12
+        controls.spacing = 10
+        dot.wantsLayer = true
+        dot.layer?.cornerRadius = 5
+        dot.layer?.backgroundColor = Theme.textFaint.cgColor
+        dot.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            dot.widthAnchor.constraint(equalToConstant: 10),
+            dot.heightAnchor.constraint(equalToConstant: 10),
+        ])
+        controls.addArrangedSubview(dot)
+        controls.addArrangedSubview(stateLabel)
+        controls.addArrangedSubview(serverLabel)
         let reload = NSButton(title: "Reconnect", target: self, action: #selector(reconnect))
         reload.bezelStyle = .rounded
         controls.addArrangedSubview(reload)
-        controls.addArrangedSubview(stateLabel)
         stack.addArrangedSubview(controls)
-        web.navigationDelegate = self
-        web.translatesAutoresizingMaskIntoConstraints = false
-        stack.addArrangedSubview(web)
-        web.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52).isActive = true
-        addBanner(stack, key: "live", text: "The full OpenCode web interface, embedded and paired automatically. Press Reconnect if the connection drops.")
+
+        let card = NSStackView()
+        card.orientation = .vertical
+        card.alignment = .leading
+        card.spacing = 6
+        card.edgeInsets = NSEdgeInsets(top: 14, left: 16, bottom: 14, right: 16)
+        card.wantsLayer = true
+        card.layer?.backgroundColor = Theme.deep.cgColor
+        card.layer?.cornerRadius = 12
+        card.layer?.borderWidth = 1
+        card.layer?.borderColor = Theme.border.cgColor
+        card.addArrangedSubview(headerLabel("Current run", size: 11, weight: .semibold))
+        card.addArrangedSubview(currentTitle)
+        card.addArrangedSubview(currentDetail)
+        let cardButtons = NSStackView()
+        cardButtons.orientation = .horizontal
+        cardButtons.spacing = 8
+        let transcript = NSButton(title: "Open transcript", target: self, action: #selector(openCurrent))
+        transcript.bezelStyle = .rounded
+        let copyID = NSButton(title: "Copy session ID", target: self, action: #selector(copyCurrent))
+        copyID.bezelStyle = .rounded
+        cardButtons.addArrangedSubview(transcript)
+        cardButtons.addArrangedSubview(copyID)
+        card.addArrangedSubview(cardButtons)
+        stack.addArrangedSubview(card)
+        card.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52).isActive = true
+
+        stack.addArrangedSubview(headerLabel("Today's sessions", size: 11, weight: .semibold))
+        for (title, width) in [("Title", CGFloat(400)), ("Updated", CGFloat(170)), ("Session", CGFloat(240))] {
+            let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(title))
+            column.title = title
+            column.width = width
+            sessionsTable.addTableColumn(column)
+        }
+        sessionsTable.dataSource = self
+        sessionsTable.delegate = self
+        sessionsTable.usesAlternatingRowBackgroundColors = true
+        sessionsTable.style = .inset
+        sessionsTable.target = self
+        sessionsTable.doubleAction = #selector(openSelected)
+        sessionsTable.toolTip = "Double-click a session to open its transcript"
+        let scroll = NSScrollView()
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        scroll.hasVerticalScroller = true
+        scroll.documentView = sessionsTable
+        scroll.wantsLayer = true
+        scroll.layer?.cornerRadius = 12
+        scroll.layer?.borderWidth = 1
+        scroll.layer?.borderColor = Theme.border.cgColor
+        stack.addArrangedSubview(scroll)
+        scroll.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -52).isActive = true
+        addBanner(stack, key: "live", text: "The live OpenCode service, watched natively — no web embed. Reconnect re-pairs; double-click a session for its step-by-step transcript.")
         view = root
     }
 
     override func refresh() {
-        if !loaded { loaded = true; reconnect() }
+        loadCurrentRun()
+        if Date().timeIntervalSince(lastSessionLoad) > 15 {
+            lastSessionLoad = Date()
+            loadSessions()
+        }
+        if Date().timeIntervalSince(lastServiceCheck) > 120 {
+            lastServiceCheck = Date()
+            checkService()
+        }
     }
 
     @objc func reconnect() {
-        stateLabel.stringValue = "Connecting…"
-        showMessage("Connecting to the OpenCode service…")
+        lastServiceCheck = Date()
+        checkService()
+        lastSessionLoad = Date()
+        loadSessions()
+    }
+
+    func checkService() {
+        stateLabel.stringValue = "Checking…"
+        dot.layer?.backgroundColor = Theme.textFaint.cgColor
         DispatchQueue.global().async {
             let result = run("\(home)/.opencode/bin/opencode", ["pair"], cwd: Prefs.project)
             let urlString = capture("(http://\\S+)", in: result.output)
             DispatchQueue.main.async {
-                guard result.code == 0, let urlString, let url = URL(string: urlString) else {
+                if let urlString {
+                    self.stateLabel.stringValue = "Connected — live"
+                    self.serverLabel.stringValue = urlString
+                    self.dot.layer?.backgroundColor = Theme.success.cgColor
+                } else {
                     self.stateLabel.stringValue = "Service unavailable"
-                    self.showMessage("Could not create a live link.<br><br>Make sure the OpenCode service is running, then press Reconnect.")
-                    return
+                    self.serverLabel.stringValue = "press Reconnect to re-pair"
+                    self.dot.layer?.backgroundColor = Theme.danger.cgColor
                 }
-                self.stateLabel.stringValue = "Connected — live"
-                self.web.load(URLRequest(url: url))
             }
         }
     }
 
-    func showMessage(_ message: String) {
-        let html = """
-        <html><body style="font-family:-apple-system;background:#16181c;color:#e6e6e6;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
-        <div style="text-align:center;font-size:15px;max-width:520px">\(message)</div></body></html>
-        """
-        web.loadHTMLString(html, baseURL: nil)
+    func loadSessions() {
+        DispatchQueue.global().async {
+            let result = run("\(home)/.opencode/bin/opencode", ["session", "list"], cwd: Prefs.project)
+            let parsed = result.output.split(separator: "\n").map { line -> (String, String, String) in
+                let parts = line.split(separator: "\t", maxSplits: 2).map(String.init)
+                if parts.count >= 3 { return (parts[1], parts[2], parts[0]) }
+                return (String(line), "", "")
+            }
+            DispatchQueue.main.async {
+                self.sessionRows = Array(parsed.prefix(40))
+                self.sessionsTable.reloadData()
+            }
+        }
     }
 
-    func webView(_ webView: WKWebView, didReceive challenge: URLAuthenticationChallenge,
-                 completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
-        if challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodHTTPBasic,
-           let credential {
-            completionHandler(.useCredential, credential)
+    func loadCurrentRun() {
+        guard let log = try? String(contentsOfFile: Prefs.logFile, encoding: .utf8) else { return }
+        let lines = log.split(separator: "\n")
+        let sessionLine = lines.last { $0.contains("session: ses") }
+        currentSessionID = sessionLine.flatMap { capture("(ses\\S+)", in: String($0)) } ?? ""
+        if currentSessionID.isEmpty {
+            currentTitle.stringValue = "No session logged yet"
+            currentDetail.stringValue = "The loop records a session id after each run."
         } else {
-            completionHandler(.performDefaultHandling, nil)
+            currentTitle.stringValue = "Loop session " + String(currentSessionID.prefix(14))
+            if let last = lines.last {
+                let text = String(last)
+                currentDetail.stringValue = text.count > 140 ? String(text.prefix(140)) + "…" : text
+            }
         }
+    }
+
+    @objc func openCurrent() {
+        guard !currentSessionID.isEmpty else { return }
+        SessionTranscriptController.open(sessionID: currentSessionID, title: "Loop session \(currentSessionID.prefix(8))")
+    }
+
+    @objc func copyCurrent() {
+        guard !currentSessionID.isEmpty else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(currentSessionID, forType: .string)
+    }
+
+    @objc func openSelected() {
+        let row = sessionsTable.selectedRow
+        guard row >= 0, row < sessionRows.count else { return }
+        SessionTranscriptController.open(sessionID: sessionRows[row].2, title: sessionRows[row].0)
+    }
+}
+
+extension LivePane: NSTableViewDataSource, NSTableViewDelegate {
+    func numberOfRows(in tableView: NSTableView) -> Int { sessionRows.count }
+    func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+        let cell = NSTableCellView()
+        let field = NSTextField(labelWithString: "")
+        field.font = .systemFont(ofSize: 12)
+        field.lineBreakMode = .byTruncatingTail
+        field.translatesAutoresizingMaskIntoConstraints = false
+        cell.addSubview(field)
+        cell.textField = field
+        NSLayoutConstraint.activate([
+            field.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 6),
+            field.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -6),
+            field.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+        ])
+        switch tableColumn?.identifier.rawValue {
+        case "Title": field.stringValue = sessionRows[row].0
+        case "Updated": field.stringValue = sessionRows[row].1
+        default: field.stringValue = sessionRows[row].2
+        }
+        return cell
     }
 }
 
@@ -2557,10 +2701,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var panes: [Pane] = []
     var current = 0
     var timer: Timer?
-    var rightPane: ChangesPane!
-    var rightPanel: NSView!
-    var rightPanelWidth: NSLayoutConstraint!
-    var showRightButton: NSButton!
+    var sidebarScroll: NSScrollView!
+    var sidebarWidth: NSLayoutConstraint!
     var railButtons: [NSButton] = []
     var statusItem: NSStatusItem!
     var navHistory: [Int] = []
@@ -2602,12 +2744,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         showPane(target)
     }
 
-    @objc func toggleRightPanel() {
-        Prefs.rightPanel.toggle()
-        rightPanel.isHidden = !Prefs.rightPanel
-        showRightButton.isHidden = Prefs.rightPanel
-        rightPanelWidth.constant = Prefs.rightPanel ? 400 : 0
-        if Prefs.rightPanel { rightPane.refresh() }
+    @objc func toggleSidebar() {
+        Prefs.sidebarVisible.toggle()
+        sidebarScroll.isHidden = !Prefs.sidebarVisible
+        sidebarWidth.constant = Prefs.sidebarVisible ? 224 : 0
     }
 
     func selectSection(_ index: Int) {
@@ -2627,7 +2767,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func refreshAllNow() {
         refreshCurrent()
-        if !rightPanel.isHidden { rightPane.refresh() }
     }
 
     let sections: [Section] = [
@@ -2739,7 +2878,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let refreshItem = NSMenuItem(title: "Refresh", action: #selector(refreshAllNow), keyEquivalent: "r")
         refreshItem.target = self
         viewMenu.addItem(refreshItem)
-        let panelItem = NSMenuItem(title: "Toggle Changes Panel", action: #selector(toggleRightPanel), keyEquivalent: "b")
+        let panelItem = NSMenuItem(title: "Toggle Sidebar", action: #selector(toggleSidebar), keyEquivalent: "b")
         panelItem.target = self
         viewMenu.addItem(panelItem)
         viewItem.submenu = viewMenu
@@ -2770,60 +2909,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sidebar.dataSource = self
         sidebar.delegate = self
         sidebar.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
-        let sidebarScroll = NSScrollView()
+        sidebarScroll = NSScrollView()
         sidebarScroll.translatesAutoresizingMaskIntoConstraints = false
         sidebarScroll.documentView = sidebar
         sidebarScroll.drawsBackground = false
-        sidebarScroll.widthAnchor.constraint(equalToConstant: 224).isActive = true
+        sidebarWidth = sidebarScroll.widthAnchor.constraint(equalToConstant: 224)
 
         content.translatesAutoresizingMaskIntoConstraints = false
 
-        // Persistent right sidebar: the agent's live changes, always available.
-        rightPane = ChangesPane()
-        let rightHeader = NSStackView()
-        rightHeader.orientation = .horizontal
-        rightHeader.spacing = 8
-        rightHeader.addArrangedSubview(headerLabel("Changes", size: 12, weight: .semibold))
-        let rightSpacer = NSView()
-        rightSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        rightHeader.addArrangedSubview(rightSpacer)
-        let hideButton = NSButton(title: "", target: self, action: #selector(toggleRightPanel))
-        hideButton.image = NSImage(systemSymbolName: "sidebar.right", accessibilityDescription: "Hide the changes panel")
-        hideButton.isBordered = false
-        hideButton.contentTintColor = Theme.textMuted
-        hideButton.toolTip = "Hide the changes panel"
-        rightHeader.addArrangedSubview(hideButton)
-        rightHeader.translatesAutoresizingMaskIntoConstraints = false
-        let rightContainer = NSView()
-        rightContainer.translatesAutoresizingMaskIntoConstraints = false
-        rightContainer.wantsLayer = true
-        rightContainer.layer?.backgroundColor = Theme.base.cgColor
-        rightContainer.addSubview(rightHeader)
-        let rightPaneView = rightPane.view
-        rightPaneView.translatesAutoresizingMaskIntoConstraints = false
-        rightContainer.addSubview(rightPaneView)
-        NSLayoutConstraint.activate([
-            rightHeader.topAnchor.constraint(equalTo: rightContainer.topAnchor, constant: 10),
-            rightHeader.leadingAnchor.constraint(equalTo: rightContainer.leadingAnchor, constant: 14),
-            rightHeader.trailingAnchor.constraint(equalTo: rightContainer.trailingAnchor, constant: -14),
-            rightPaneView.topAnchor.constraint(equalTo: rightHeader.bottomAnchor),
-            rightPaneView.leadingAnchor.constraint(equalTo: rightContainer.leadingAnchor),
-            rightPaneView.trailingAnchor.constraint(equalTo: rightContainer.trailingAnchor),
-            rightPaneView.bottomAnchor.constraint(equalTo: rightContainer.bottomAnchor),
-        ])
-        rightPanel = rightContainer
-        showRightButton = NSButton(title: "", target: self, action: #selector(toggleRightPanel))
-        showRightButton.image = NSImage(systemSymbolName: "sidebar.right", accessibilityDescription: "Show the changes panel")
-        showRightButton.isBordered = false
-        showRightButton.contentTintColor = Theme.textMuted
-        showRightButton.toolTip = "Show the changes panel"
-        showRightButton.translatesAutoresizingMaskIntoConstraints = false
-
         root.addSubview(sidebarScroll)
         root.addSubview(content)
-        root.addSubview(rightPanel)
-        root.addSubview(showRightButton)
-        rightPanelWidth = rightPanel.widthAnchor.constraint(equalToConstant: Prefs.rightPanel ? 400 : 0)
 
         // Icon rail: one-click jumps between views (the reference's left strip).
         let rail = NSStackView()
@@ -2883,16 +2978,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             content.topAnchor.constraint(equalTo: root.topAnchor),
             content.bottomAnchor.constraint(equalTo: root.bottomAnchor),
             content.leadingAnchor.constraint(equalTo: sidebarScroll.trailingAnchor),
-            content.trailingAnchor.constraint(equalTo: rightPanel.leadingAnchor),
-            rightPanel.topAnchor.constraint(equalTo: root.topAnchor),
-            rightPanel.bottomAnchor.constraint(equalTo: root.bottomAnchor),
-            rightPanel.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            rightPanelWidth,
-            showRightButton.topAnchor.constraint(equalTo: root.topAnchor, constant: 12),
-            showRightButton.trailingAnchor.constraint(equalTo: rightPanel.leadingAnchor, constant: -10),
+            content.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            sidebarWidth,
         ])
-        rightPanel.isHidden = !Prefs.rightPanel
-        showRightButton.isHidden = Prefs.rightPanel
+        sidebarScroll.isHidden = !Prefs.sidebarVisible
+        sidebarWidth.constant = Prefs.sidebarVisible ? 224 : 0
         window.contentView = root
         NSLog("AgentWatcher: content set")
         window.setFrameAutosaveName("AgentWatcher.Main")
@@ -2932,7 +3022,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func refreshCurrent() {
         if panes.count > current { panes[current].refresh() }
-        if !rightPanel.isHidden { rightPane.refresh() }
         let todayCount = commitEvents(since: "midnight").count
         (badgeItem?.view as? NSTextField)?.stringValue = "\(todayCount)"
         NSApp.dockTile.badgeLabel = todayCount > 0 ? "\(todayCount)" : nil
@@ -3010,7 +3099,7 @@ extension NSToolbarItem.Identifier {
     static let navBack = NSToolbarItem.Identifier("AgentWatcher.navBack")
     static let navForward = NSToolbarItem.Identifier("AgentWatcher.navForward")
     static let navTitle = NSToolbarItem.Identifier("AgentWatcher.navTitle")
-    static let toggleSummary = NSToolbarItem.Identifier("AgentWatcher.toggleSummary")
+    static let toggleSidebar = NSToolbarItem.Identifier("AgentWatcher.toggleSidebar")
     static let badge = NSToolbarItem.Identifier("AgentWatcher.badge")
 }
 
@@ -3042,13 +3131,13 @@ extension AppDelegate: NSToolbarDelegate {
             item.label = "View"
             titleItem = item
             return item
-        case .toggleSummary:
+        case .toggleSidebar:
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
-            item.image = NSImage(systemSymbolName: "sidebar.right", accessibilityDescription: "Toggle summary")
+            item.image = NSImage(systemSymbolName: "sidebar.left", accessibilityDescription: "Toggle sidebar")
             item.target = self
-            item.action = #selector(toggleRightPanel)
-            item.label = "Toggle summary"
-            item.toolTip = "Toggle summary"
+            item.action = #selector(toggleSidebar)
+            item.label = "Toggle sidebar"
+            item.toolTip = "Show or hide the sidebar (⌘B)"
             return item
         case .badge:
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
@@ -3067,7 +3156,7 @@ extension AppDelegate: NSToolbarDelegate {
     }
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.navBack, .navForward, .flexibleSpace, .navTitle, .flexibleSpace, .badge, .toggleSummary]
+        [.toggleSidebar, .navBack, .navForward, .flexibleSpace, .navTitle, .flexibleSpace, .badge]
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
