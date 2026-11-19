@@ -1,0 +1,739 @@
+Embedded Zed source verified: aa9c16803dd841950e3d4f4c7ecd76f324e0ba44; 2 integration patch(es)
+{"file-count": 4443, "record": "/Users/s_avelova/Documents/projects/agentwatcher/dist/rust-sol-speed-review-0.2.0/source-inputs.json", "state-sha256": "fd33078d758c5596e3c0f65d89595af193333048d8e36d86b03c9a2239858f6d"}
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.27
+   Compiling serde_core v1.0.229
+   Compiling syn v3.0.9
+   Compiling syn v2.0.119
+   Compiling libc v0.2.190
+   Compiling cfg-if v1.0.5
+   Compiling serde_derive v1.0.229
+   Compiling serde v1.0.229
+   Compiling memchr v2.8.3
+   Compiling bitflags v2.13.2
+   Compiling value-bag v1.14.1
+   Compiling log v0.4.34
+   Compiling jobserver v0.1.35
+   Compiling find-msvc-tools v0.1.14
+   Compiling shlex v2.0.1
+   Compiling cc v1.8.0
+   Compiling allocator-api2 v0.2.21
+   Compiling smallvec v1.16.3
+   Compiling foldhash v0.2.0
+   Compiling libm v0.2.16
+   Compiling equivalent v1.0.3
+   Compiling pin-project-lite v0.2.17
+   Compiling hashbrown v0.17.1
+   Compiling version_check v0.9.5
+   Compiling anyhow v1.0.104
+   Compiling autocfg v1.5.1
+   Compiling indexmap v2.14.2
+   Compiling pkg-config v0.3.34
+   Compiling futures-core v0.3.34
+   Compiling thiserror v2.0.21
+   Compiling thiserror-impl v2.0.21
+   Compiling generic-array v0.14.7
+   Compiling zmij v1.0.23
+   Compiling itoa v1.0.18
+   Compiling futures-io v0.3.34
+   Compiling stable_deref_trait v1.2.1
+   Compiling crossbeam-utils v0.8.23
+   Compiling scopeguard v1.2.0
+   Compiling crc32fast v1.5.2
+   Compiling synstructure v0.14.0
+   Compiling const-oid v0.9.6
+   Compiling num-traits v0.2.19
+   Compiling errno v0.3.14
+   Compiling heck v0.5.0
+   Compiling rustc-hash v2.1.3
+   Compiling once_cell v1.21.4
+   Compiling typenum v1.20.1
+   Compiling zerofrom-derive v0.1.8
+   Compiling getrandom v0.4.3
+   Compiling rustix v1.1.5
+   Compiling slab v0.4.12
+   Compiling zerofrom v0.1.8
+   Compiling yoke-derive v0.8.4
+   Compiling yoke v0.8.3
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling digest v0.10.7
+   Compiling hashbrown v0.16.1
+   Compiling zerovec-derive v0.11.6
+   Compiling parking v2.2.1
+   Compiling serde_json v1.0.154
+   Compiling zerovec v0.11.8
+   Compiling lock_api v0.4.14
+   Compiling displaydoc v0.2.7
+   Compiling simd-adler32 v0.3.10
+   Compiling fastrand v2.5.0
+   Compiling regex-syntax v0.8.11
+   Compiling parking_lot_core v0.9.12
+   Compiling cpufeatures v0.2.17
+   Compiling futures-macro v0.3.34
+   Compiling writeable v0.6.4
+   Compiling adler2 v2.0.1
+   Compiling siphasher v1.0.4
+   Compiling objc2-encode v4.1.0
+   Compiling tinystr v0.8.4
+   Compiling litemap v0.8.3
+   Compiling zerocopy v0.8.63
+   Compiling core-foundation-sys v0.8.7
+   Compiling futures-sink v0.3.34
+   Compiling icu_locale_core v2.3.0
+   Compiling potential_utf v0.1.6
+   Compiling zerotrie v0.2.5
+   Compiling zstd-sys v2.1.1+zstd.1.5.7
+   Compiling aho-corasick v1.1.5
+   Compiling zerocopy-derive v0.8.63
+   Compiling regex-automata v0.4.18
+   Compiling icu_provider v2.3.1
+   Compiling futures-lite v2.6.1
+   Compiling concurrent-queue v2.5.0
+   Compiling bytes v1.12.1
+   Compiling icu_normalizer_data v2.3.0
+   Compiling utf8_iter v1.0.4
+   Compiling objc2 v0.6.5
+   Compiling icu_properties_data v2.3.0
+   Compiling icu_collections v2.3.0
+   Compiling futures-channel v0.3.34
+   Compiling sha2 v0.10.9
+   Compiling event-listener v5.4.2
+   Compiling futures-task v0.3.34
+   Compiling either v1.19.0
+   Compiling atomic-waker v1.1.2
+   Compiling arrayvec v0.7.8
+   Compiling futures-util v0.3.34
+   Compiling event-listener-strategy v0.5.4
+   Compiling miniz_oxide v0.9.1
+   Compiling utf16_iter v1.0.5
+   Compiling write16 v1.0.0
+   Compiling icu_normalizer v2.3.0
+   Compiling flate2 v1.1.10
+   Compiling icu_properties v2.3.0
+   Compiling parking_lot v0.12.5
+   Compiling zstd-safe v7.3.0
+   Compiling percent-encoding v2.3.2
+   Compiling futures-executor v0.3.34
+   Compiling polling v3.11.0
+   Compiling async-io v2.6.0
+   Compiling async-task v4.7.1 (https://github.com/zed-industries/async-task.git?rev=015845a19fc31752c02367567d3b8900a406f9da#015845a1)
+   Compiling futures v0.3.34
+   Compiling form_urlencoded v1.2.2
+   Compiling idna_adapter v1.2.2
+   Compiling objc2-core-foundation v0.3.2
+   Compiling crossbeam-epoch v0.9.21
+   Compiling ref-cast v1.0.27
+   Compiling idna v1.1.0
+   Compiling async-lock v3.4.2
+   Compiling async-channel v2.5.0
+   Compiling piper v0.2.5
+   Compiling ref-cast-impl v1.0.27
+   Compiling serde_derive_internals v0.30.0
+   Compiling crossbeam-deque v0.8.8
+   Compiling schemars_derive v1.2.3
+   Compiling blocking v1.7.0
+   Compiling url v2.5.8
+   Compiling itertools v0.14.0
+   Compiling gpui_util v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/gpui_util)
+   Compiling bytemuck v1.25.2
+   Compiling dyn-clone v1.0.20
+   Compiling cfg_aliases v0.2.2
+   Compiling unicode-segmentation v1.13.3
+   Compiling schemars v1.2.3
+   Compiling http v1.5.0
+   Compiling ppv-lite86 v0.2.21
+   Compiling euclid v0.22.14
+   Compiling strum_macros v0.28.0
+   Compiling signal-hook-registry v1.4.8
+   Compiling no_std_io2 v0.9.4
+   Compiling rle-decode-fast v1.0.3
+   Compiling same-file v1.0.6
+   Compiling walkdir v2.5.0
+   Compiling libflate_lz77 v2.3.0
+   Compiling collections v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/collections)
+   Compiling async-executor v1.14.0
+   Compiling regex v1.13.1
+   Compiling tracing-core v0.1.36
+   Compiling tracing-attributes v0.1.31
+   Compiling pin-project-internal v1.1.13
+   Compiling dary_heap v0.3.9
+   Compiling mach2 v0.6.0
+   Compiling adler32 v1.2.0
+   Compiling libflate v2.3.2
+   Compiling pin-project v1.1.13
+   Compiling tracing v0.1.44
+   Compiling zstd v0.13.3
+   Compiling block2 v0.6.2
+   Compiling miniz_oxide v0.8.9
+   Compiling bstr v1.13.1
+   Compiling proc-macro-error-attr3 v3.1.1
+   Compiling option-ext v0.2.0
+   Compiling sha1_smol v1.0.1
+   Compiling rayon-core v1.13.0
+   Compiling getrandom v0.3.4
+   Compiling libbz2-rs-sys v0.2.5
+   Compiling bzip2 v0.6.1
+   Compiling uuid v1.28.0
+   Compiling dirs-sys v0.5.0
+   Compiling proc-macro-error3 v3.1.1
+   Compiling globset v0.4.20
+   Compiling include-flate-compress v0.3.4
+   Compiling async-signal v0.2.14
+   Compiling convert_case v0.10.0
+   Compiling nix v0.31.3
+   Compiling polycool v0.4.0
+   Compiling deflate64 v0.1.12
+   Compiling compression-core v0.4.33
+   Compiling base64 v0.22.1
+   Compiling dunce v1.0.5
+   Compiling serde_json_lenient v0.2.4
+   Compiling unicase v2.10.0
+   Compiling ryu v1.0.23
+   Compiling path v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/path)
+   Compiling compression-codecs v0.4.45
+   Compiling kurbo v0.13.1
+   Compiling derive_more-impl v2.1.1
+   Compiling async-process v2.5.0 (https://github.com/zed-industries/async-process.git?rev=0b6d6713570af61806e1e5cb40e0f757cb93fd9d#0b6d6713)
+   Compiling include-flate-codegen v0.3.4
+   Compiling rust-embed-utils v8.11.0
+   Compiling dirs v6.0.0
+   Compiling objc2-foundation v0.3.2
+   Compiling strum v0.28.0
+   Compiling http-body v1.1.0
+   Compiling nix v0.30.1
+   Compiling async-fs v2.2.0
+   Compiling async-net v2.0.0
+   Compiling tempfile v3.27.0
+   Compiling half v2.7.1
+   Compiling spin v0.9.9
+   Compiling slotmap v1.1.1
+   Compiling byteorder v1.5.0
+   Compiling paste v1.0.15
+   Compiling smol v2.0.2
+   Compiling rand_core v0.9.5
+   Compiling rust-embed-impl v8.11.0
+   Compiling include-flate v0.3.4
+   Compiling derive_more v2.1.1
+   Compiling svgtypes v0.16.1
+   Compiling async-compression v0.4.50
+   Compiling iana-time-zone v0.1.65
+   Compiling fdeflate v0.3.7
+   Compiling core_maths v0.1.1
+   Compiling smol_str v0.3.6
+   Compiling event-listener v2.5.3
+   Compiling heapless v0.9.3
+   Compiling ztracing v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/ztracing)
+   Compiling float-cmp v0.9.0
+   Compiling strict-num v0.1.1
+   Compiling async-channel v1.9.0
+   Compiling gpui_shared_string v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/gpui_shared_string)
+   Compiling ttf-parser v0.25.1
+   Compiling chrono v0.4.45
+   Compiling rust-embed v8.11.0
+   Compiling async_zip v0.0.18
+   Compiling command-fds v0.3.3
+   Compiling rand_chacha v0.9.0
+   Compiling hash32 v0.3.1
+   Compiling rayon v1.12.0
+   Compiling async-global-executor v2.4.1
+   Compiling lyon_geom v1.0.19
+   Compiling pulp v0.22.3
+   Compiling kv-log-macro v1.0.7
+   Compiling roxmltree v0.21.1
+   Compiling which v8.0.6
+   Compiling bitflags v1.3.2
+   Compiling zune-core v0.5.3
+   Compiling quick-error v2.0.1
+   Compiling pin-utils v0.1.1
+   Compiling arrayref v0.3.9
+   Compiling data-url v0.3.2
+   Compiling object v0.37.3
+   Compiling ztracing_macro v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/ztracing_macro)
+   Compiling tinyvec v1.13.3
+   Compiling weezl v0.1.12
+   Compiling util v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/util)
+   Compiling tiny-skia-path v0.11.4
+   Compiling async-std v1.13.2
+   Compiling zune-jpeg v0.5.15
+   Compiling lyon_path v1.0.19
+   Compiling rand v0.9.5
+   Compiling num-complex v0.4.6
+   Compiling xattr v1.6.1
+   Compiling filetime v0.2.29
+   Compiling memmap2 v0.9.11
+   Compiling enumn v0.1.14
+   Compiling color_quant v1.1.0
+   Compiling unicode-properties v0.1.3
+   Compiling unicode-bidi-mirroring v0.4.0
+   Compiling unicode-script v0.5.8
+   Compiling unicode-ccc v0.4.0
+   Compiling pulp-wasm-simd-flag v0.1.1
+   Compiling gimli v0.32.3
+   Compiling byteorder-lite v0.1.0
+   Compiling reborrow v0.5.5
+   Compiling image-webp v0.2.4
+   Compiling addr2line v0.25.1
+   Compiling rustybuzz v0.20.1
+   Compiling gif v0.14.2
+   Compiling accesskit v0.24.1
+   Compiling fontdb v0.23.0
+   Compiling async-tar v0.6.1 (https://github.com/zed-industries/async-tar?rev=bd3ad6f89df9a9da7a8535958756d6bf465936a0#bd3ad6f8)
+   Compiling sum_tree v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/sum_tree)
+   Compiling png v0.17.16
+   Compiling serde_urlencoded v0.7.1
+   Compiling zune-inflate v0.2.54
+   Compiling simplecss v0.2.2
+   Compiling unicode-vo v0.1.0
+   Compiling pxfm v0.1.30
+   Compiling xmlwriter v0.1.0
+   Compiling float_next_after v1.0.0
+   Compiling fax v0.2.7
+   Compiling rustc-demangle v0.1.28
+   Compiling bit_field v0.10.3
+   Compiling lebe v0.5.3
+   Compiling imagesize v0.14.0
+   Compiling pico-args v0.5.0
+   Compiling unicode-bidi v0.3.18
+   Compiling usvg v0.46.0
+   Compiling exr v1.74.2
+   Compiling backtrace v0.3.76
+   Compiling tiff v0.11.3
+   Compiling lyon_tessellation v1.0.22
+   Compiling moxcms v0.8.1
+   Compiling http_client v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/http_client)
+   Compiling tiny-skia v0.11.4
+   Compiling lyon_algorithms v1.0.21
+   Compiling png v0.18.1
+   Compiling flume v0.12.0
+   Compiling objc2-metal v0.3.2
+   Compiling rgb v0.8.53
+   Compiling qoi v0.4.1
+   Compiling profiling-procmacros v1.0.18
+   Compiling derive_refineable v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/refineable/derive_refineable)
+   Compiling gpui v0.2.2 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/gpui)
+   Compiling linktime-proc-macro v0.2.3
+   Compiling svg_fmt v0.4.5
+   Compiling web-time v1.1.0
+   Compiling link-section v0.19.3
+   Compiling ctor v1.0.13
+   Compiling scheduler v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/scheduler)
+   Compiling etagere v0.2.15
+   Compiling refineable v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/refineable)
+   Compiling profiling v1.0.18
+   Compiling image v0.25.10
+   Compiling resvg v0.46.0
+   Compiling objc2-core-video v0.3.2
+   Compiling lyon v1.0.19
+   Compiling taffy v0.13.0
+   Compiling spin v0.10.1
+   Compiling gpui_macros v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/gpui_macros)
+   Compiling num_cpus v1.17.0
+   Compiling pollster v0.4.0
+   Compiling inventory v0.3.25
+   Compiling waker-fn v1.2.0
+   Compiling raw-window-handle v0.6.2
+   Compiling seahash v4.1.0
+   Compiling semver v1.0.28
+   Compiling zeroize v1.9.1
+   Compiling rustc_version v0.4.1
+   Compiling wasmtime-internal-core v48.0.6
+   Compiling cranelift-srcgen v0.135.6
+   Compiling cranelift-assembler-x64-meta v0.135.6
+   Compiling pulley-macros v48.0.6
+   Compiling cranelift-bitset v0.135.6
+   Compiling cranelift-isle v0.135.6
+   Compiling pulley-interpreter v48.0.6
+   Compiling rustversion v1.0.23
+   Compiling cranelift-codegen-shared v0.135.6
+   Compiling target-lexicon v0.13.5
+   Compiling cranelift-codegen-meta v0.135.6
+   Compiling cranelift-entity v0.135.6
+   Compiling cranelift-assembler-x64 v0.135.6
+   Compiling cobs v0.3.0
+   Compiling fnv v1.0.7
+   Compiling gimli v0.33.0
+   Compiling postcard v1.1.3
+   Compiling cranelift-bforest v0.135.6
+   Compiling cranelift-codegen v0.135.6
+   Compiling bumpalo v3.20.3
+   Compiling arbitrary v1.5.0
+   Compiling cranelift-control v0.135.6
+   Compiling regalloc2 v0.15.2
+   Compiling prost-derive v0.14.4
+   Compiling object v0.39.1
+   Compiling logos-codegen v0.15.1
+   Compiling wasmparser v0.254.2
+   Compiling termcolor v1.4.1
+   Compiling leb128fmt v0.1.0
+   Compiling wasm-encoder v0.254.2
+   Compiling wasmprinter v0.254.2
+   Compiling prost v0.14.4
+   Compiling wasmtime-internal-versioned-export-macros v48.0.6
+   Compiling async-trait v0.1.92
+   Compiling beef v0.5.2
+   Compiling tree-sitter-language v0.1.8 (https://github.com/tree-sitter/tree-sitter?rev=43623ec9bf0eaaf7113285c46e8a09018f181b18#43623ec9)
+   Compiling wasmtime-internal-unwinder v48.0.6
+   Compiling wasmtime-internal-component-util v48.0.6
+   Compiling lazy_static v1.5.1
+   Compiling wasmtime-environ v48.0.6
+   Compiling phf_shared v0.13.1
+   Compiling prost-types v0.14.4
+   Compiling encoding_rs v0.8.42
+   Compiling logos-codegen v0.16.1
+   Compiling miette-derive v7.6.0
+   Compiling wasmtime-internal-cranelift v48.0.6
+   Compiling unicode-width v0.1.14
+   Compiling miette v7.6.0
+   Compiling logos-derive v0.16.1
+   Compiling logos-derive v0.15.1
+   Compiling wasmtime v48.0.6
+   Compiling cranelift-native v0.135.6
+   Compiling cranelift-frontend v0.135.6
+   Compiling cmake v0.1.58
+   Compiling konst_macro_rules v0.2.19
+   Compiling simdutf8 v0.1.5
+   Compiling multiversion_no_op v1.0.0
+   Compiling unicode-xid v0.2.6
+   Compiling wasmtime-c-api-impl v48.0.6
+   Compiling fs_extra v1.3.0
+   Compiling foldhash v0.1.5
+   Compiling hashbrown v0.15.5
+   Compiling aws-lc-sys v0.46.0
+   Compiling const_format_proc_macros v0.2.34
+   Compiling konst v0.2.20
+   Compiling logos v0.15.1
+   Compiling logos v0.16.1
+   Compiling phf_generator v0.13.1
+   Compiling wasmtime-internal-jit-icache-coherence v48.0.6
+   Compiling fixedbitset v0.5.7
+   Compiling petgraph v0.8.3
+   Compiling prost-reflect v0.16.5
+   Compiling protox-parse v0.9.0
+   Compiling const_format v0.2.36
+   Compiling tree-sitter v0.27.0 (https://github.com/tree-sitter/tree-sitter?rev=43623ec9bf0eaaf7113285c46e8a09018f181b18#43623ec9)
+   Compiling cloud_llm_client v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/cloud_llm_client)
+   Compiling wasmtime-internal-c-api-macros v48.0.6
+   Compiling multimap v0.10.1
+   Compiling prost-build v0.14.4
+   Compiling protox v0.9.1
+   Compiling ignore v0.4.33
+   Compiling tree-sitter-json v0.24.8
+   Compiling thiserror v1.0.69
+   Compiling streaming-iterator v0.1.9
+   Compiling aws-lc-rs v1.18.2
+   Compiling release_channel v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/release_channel)
+   Compiling paths v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/paths)
+   Compiling proto v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/proto)
+   Compiling mio v1.2.4
+   Compiling socket2 v0.6.5
+   Compiling thiserror-impl v1.0.69
+   Compiling tokio-macros v2.7.2
+   Compiling partial-json-fixer v0.5.5
+   Compiling by_address v1.2.1
+   Compiling palette_derive v0.7.7
+   Compiling language_model_core v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/language_model_core)
+   Compiling tokio v1.53.3
+   Compiling rustls-pki-types v1.15.1
+   Compiling crossbeam-queue v0.3.14
+   Compiling serde_path_to_error v0.1.20
+   Compiling palette_math v0.7.7
+   Compiling pollster v0.2.5
+   Compiling atomic v0.5.3
+   Compiling static_assertions v1.1.0
+   Compiling postage v0.5.0
+   Compiling palette v0.7.7
+   Compiling settings_json v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/settings_json)
+   Compiling net v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/net)
+   Compiling settings_macros v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/settings_macros)
+   Compiling num-conv v0.2.2
+   Compiling subtle v2.6.1
+   Compiling untrusted v0.9.0
+   Compiling time-core v0.1.9
+   Compiling rustls v0.23.45
+   Compiling httparse v1.10.1
+   Compiling time-macros v0.2.32
+   Compiling rustls-webpki v0.103.15
+   Compiling settings_content v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/settings_content)
+   Compiling askpass v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/askpass)
+   Compiling chardetng v0.1.17
+   Compiling rope v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/rope)
+   Compiling telemetry_events v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/telemetry_events)
+   Compiling clock v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/clock)
+   Compiling getrandom v0.2.17
+   Compiling num_threads v0.1.7
+   Compiling deranged v0.5.9
+   Compiling powerfmt v0.2.1
+   Compiling urlencoding v2.1.3
+   Compiling time v0.3.55
+   Compiling rand_core v0.6.4
+   Compiling text v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/text)
+   Compiling telemetry v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/telemetry)
+   Compiling file_content v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/file_content)
+   Compiling objc2-core-services v0.3.2
+   Compiling core-foundation v0.10.0
+   Compiling notify-types v2.1.0 (https://github.com/zed-industries/notify?rev=d842f16b2716bd60f09caf3ae3a894237ab38f54#d842f16b)
+   Compiling xxhash-rust v0.8.19
+   Compiling notify v9.0.0-rc.4 (https://github.com/zed-industries/notify?rev=d842f16b2716bd60f09caf3ae3a894237ab38f54#d842f16b)
+   Compiling git v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/git)
+   Compiling convert_case v0.11.0
+   Compiling unicode-normalization v0.1.25
+   Compiling trash v5.2.5 (https://github.com/zed-industries/trash-rs?rev=41c6c800d884a89351f3b8856d12894cccee261d#41c6c800)
+   Compiling fs v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/fs)
+   Compiling migrator v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/migrator)
+   Compiling rand_chacha v0.3.1
+   Compiling phf_macros v0.13.1
+   Compiling phf_codegen v0.13.1
+   Compiling syntax_theme v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/syntax_theme)
+   Compiling ec4rs v1.2.0
+   Compiling settings v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/settings)
+   Compiling theme v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/theme)
+   Compiling phf v0.13.1
+   Compiling rand v0.8.8
+   Compiling der v0.7.10
+   Compiling sha1 v0.10.7
+   Compiling spki v0.7.3
+   Compiling tokio-rustls v0.26.6
+   Compiling num-integer v0.1.47
+   Compiling num-bigint-dig v0.8.6
+   Compiling num-iter v0.1.46
+   Compiling pkcs8 v0.10.2
+   Compiling utf-8 v0.7.6
+   Compiling data-encoding v2.11.1
+   Compiling tungstenite v0.28.0
+   Compiling pkcs1 v0.7.5
+   Compiling imara-diff v0.2.0
+   Compiling signature v2.2.0
+   Compiling winnow v1.0.4
+   Compiling toml_parser v1.1.5+spec-1.1.0
+   Compiling rsa v0.9.10
+   Compiling async-tungstenite v0.33.0
+   Compiling arc-swap v1.9.2
+   Compiling zed_actions v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/zed_actions)
+   Compiling shellexpand v3.1.2
+   Compiling toml_datetime v0.7.5+spec-1.1.0
+   Compiling serde_spanned v1.1.2
+   Compiling hex v0.4.3
+   Compiling winnow v0.7.15
+   Compiling new_debug_unreachable v1.0.6
+   Compiling toml v0.9.12+spec-1.1.0
+   Compiling task v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/task)
+   Compiling watch v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/watch)
+   Compiling rpc v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/rpc)
+   Compiling nucleo-matcher v0.3.1
+   Compiling fuzzy v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/fuzzy)
+   Compiling lsp-types v0.95.1 (https://github.com/zed-industries/lsp-types?rev=f1783e63a7f4eb4397bf51d4148b4895a1f7ab16#f1783e63)
+   Compiling lru v0.16.4
+   Compiling nu-ansi-term v0.50.3
+   Compiling precomputed-hash v0.1.1
+   Compiling diffy v0.4.2
+   Compiling language_core v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/language_core)
+   Compiling lsp v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/lsp)
+   Compiling fuzzy_nucleo v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/fuzzy_nucleo)
+   Compiling zlog v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/zlog)
+   Compiling strsim v0.11.1
+   Compiling language v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/language)
+   Compiling security-framework-sys v2.17.0
+   Compiling security-framework v3.7.0
+   Compiling try-lock v0.2.5
+   Compiling want v0.3.2
+   Compiling ciborium-io v0.2.2
+   Compiling dtoa v1.0.11
+   Compiling dtoa-short v0.3.5
+   Compiling ciborium-ll v0.2.2
+   Compiling hyper v1.12.0
+   Compiling selectors v0.37.0
+   Compiling webpki-roots v1.0.9
+   Compiling string_cache_codegen v0.6.1
+   Compiling cssparser-macros v0.6.1
+   Compiling icu_locale_fallback_data v2.3.0
+   Compiling ascii v1.1.0
+   Compiling chunked_transfer v1.5.0
+   Compiling httpdate v1.0.3
+   Compiling native-tls v0.2.18
+   Compiling vcpkg v0.2.15
+   Compiling libsqlite3-sys v0.30.1
+   Compiling tiny_http v0.12.0
+   Compiling cssparser v0.36.0
+   Compiling htmlize v1.1.0
+   Compiling web_atoms v0.2.6
+   Compiling hyper-util v0.1.21
+   Compiling ciborium v0.2.2
+   Compiling rustls-platform-verifier v0.7.1
+   Compiling zeta_prompt v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/zeta_prompt)
+   Compiling tokio-util v0.7.20
+   Compiling credentials_provider v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/credentials_provider)
+   Compiling http-body-util v0.1.5
+   Compiling servo_arc v0.4.3
+   Compiling nom v8.0.0
+   Compiling lalrpop-util v0.23.1
+   Compiling minimal-lexical v0.2.1
+   Compiling unicode-general-category v1.1.0
+   Compiling icu_collator_data v2.3.0
+   Compiling nom v7.1.3
+   Compiling yawc v0.4.2
+   Compiling cloud_api_types v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/cloud_api_types)
+   Compiling http_client_tls v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/http_client_tls)
+   Compiling ar_archive_writer v0.5.3
+   Compiling string_cache v0.9.0
+   Compiling gpui_tokio v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/gpui_tokio)
+   Compiling feature_flags_macros v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/feature_flags_macros)
+   Compiling unicode-width v0.2.2
+   Compiling pulldown-cmark v0.13.4
+   Compiling arraydeque v0.5.1
+   Compiling pastey v0.1.1
+   Compiling mime v0.3.17
+   Compiling ucd-trie v0.1.7
+   Compiling json5 v1.3.2
+   Compiling lol_html v3.0.1
+   Compiling granit-parser v1.0.0
+   Compiling feature_flags v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/feature_flags)
+   Compiling cloud_api_client v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/cloud_api_client)
+   Compiling tokio-native-tls v0.3.1
+   Compiling icu_locale_fallback v2.3.0
+   Compiling psm v0.1.32
+   Compiling zed_credentials_provider v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/zed_credentials_provider)
+   Compiling worktree v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/worktree)
+   Compiling tendril v0.5.1
+   Compiling proxy_handshake v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/proxy_handshake)
+   Compiling itertools v0.15.0
+   Compiling icons v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/icons)
+   Compiling dugong-graphlib v0.8.0-alpha.5
+   Compiling optfield v0.4.0
+   Compiling ryu-js v1.0.3
+   Compiling merman-core v0.8.0-alpha.5
+   Compiling documented-macros v0.10.0
+   Compiling dugong v0.8.0-alpha.5
+   Compiling client v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/client)
+   Compiling markup5ever v0.39.0
+   Compiling icu_collator v2.3.1
+   Compiling node_runtime v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/node_runtime)
+   Compiling core-graphics-types v0.2.0
+   Compiling roughr-merman v0.12.4
+   Compiling manatee v0.8.0-alpha.5
+   Compiling stacker v0.1.25
+   Compiling quick-xml v0.41.0
+   Compiling foreign-types-macros v0.2.4
+   Compiling signal-hook v0.4.5
+   Compiling unicode-linebreak v0.1.5
+   Compiling ui v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/ui)
+   Compiling foreign-types-shared v0.3.1
+   Compiling foreign-types v0.5.0
+   Compiling merman-render v0.8.0-alpha.5
+   Compiling documented v0.10.0
+   Compiling serde_spanned v0.6.9
+   Compiling toml_datetime v0.6.11
+   Compiling component v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/component)
+   Compiling menu v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/menu)
+   Compiling env_var v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/env_var)
+   Compiling dap-types v0.0.1 (https://github.com/zed-industries/dap-types?rev=1b461b310481d01e02b2603c16d7144b926339f8#1b461b31)
+   Compiling ui_macros v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/ui_macros)
+   Compiling cursor-icon v1.2.0
+   Compiling toml_write v0.1.2
+   Compiling unicode_categories v0.1.1
+   Compiling indoc v2.0.8
+   Compiling objc-sys v0.3.5
+   Compiling toml_edit v0.22.27
+   Compiling sqlformat v0.2.6
+   Compiling vte v0.15.0
+   Compiling dap v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/dap)
+   Compiling merman v0.8.0-alpha.5
+   Compiling xml5ever v0.39.0
+   Compiling html5ever v0.39.0
+   Compiling theme_settings v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/theme_settings)
+   Compiling pathfinder_simd v0.5.6
+   Compiling objc2-io-kit v0.3.2
+   Compiling rustix-openpty v0.2.0
+   Compiling thread_local v1.1.10
+   Compiling malloc_buf v0.0.6
+   Compiling stacksafe-macro v1.0.3
+   Compiling cbindgen v0.28.0
+   Compiling home v0.5.12
+   Compiling bit-vec v0.8.0
+   Compiling extension v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/extension)
+   Compiling bit-set v0.8.0
+   Compiling alacritty_terminal v0.26.1-dev (https://github.com/zed-industries/alacritty?rev=4c129667ce56611becdc82de6e28218c80e2e88f#4c129667)
+   Compiling stacksafe v1.0.3
+   Compiling objc v0.2.7
+   Compiling sqlez v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/sqlez)
+   Compiling sysinfo v0.39.6
+   Compiling markup5ever_rcdom v0.39.0+unofficial
+   Compiling mermaid_render v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/mermaid_render)
+   Compiling toml v0.8.23
+   Compiling core-graphics v0.24.0
+   Compiling pori v0.0.0
+   Compiling oauth_callback_server v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/oauth_callback_server)
+   Compiling buffer_diff v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/buffer_diff)
+   Compiling snippet v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/snippet)
+   Compiling linkify v0.10.0
+   Compiling block v0.1.6
+   Compiling heck v0.4.1
+   Compiling markdown v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/markdown)
+   Compiling snippet_provider v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/snippet_provider)
+   Compiling context_server v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/context_server)
+   Compiling wax v0.7.0
+   Compiling objc2 v0.5.3
+   Compiling terminal v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/terminal)
+   Compiling sqlez_macros v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/sqlez_macros)
+   Compiling fancy-regex v0.19.2
+   Compiling zed_env_vars v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/zed_env_vars)
+   Compiling prettier v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/prettier)
+   Compiling remote v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/remote)
+   Compiling git_hosting_providers v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/git_hosting_providers)
+   Compiling zed-font-kit v0.14.1-zed (https://github.com/zed-industries/font-kit?rev=94b0f28166665e8fd2f53ff6d268a14955c82269#94b0f281)
+   Compiling project v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/project)
+   Compiling db v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/db)
+   Compiling pathfinder_geometry v0.5.1
+   Compiling objc2-foundation v0.2.2
+   Compiling gpui_apple v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/gpui_apple)
+   Compiling core-text v21.0.0
+   Compiling language_model v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/language_model)
+   Compiling float-ord v0.3.2
+   Compiling agent_settings v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/agent_settings)
+   Compiling objc2-app-kit v0.2.2
+   Compiling session v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/session)
+   Compiling cocoa-foundation v0.2.0
+   Compiling metal v0.33.0
+   Compiling ui_input v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/ui_input)
+   Compiling accesskit_consumer v0.38.0
+   Compiling objc2-quartz-core v0.3.2
+   Compiling dispatch2 v0.3.1
+   Compiling objc2-security v0.3.2
+   Compiling objc2-core-text v0.3.2
+   Compiling async-recursion v1.2.0
+   Compiling any_vec v0.14.0
+   Compiling fearless_simd v0.4.1
+   Compiling betlang v0.1.1
+   Compiling workspace v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/workspace)
+   Compiling accesskit_macos v0.26.3
+   Compiling cocoa v0.26.0
+   Compiling objc2-app-kit v0.3.2
+   Compiling objc2-user-notifications v0.3.2
+   Compiling gpui_macos v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/gpui_macos)
+   Compiling breadcrumbs v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/breadcrumbs)
+   Compiling language_detection v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/language_detection)
+   Compiling multi_buffer v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/multi_buffer)
+   Compiling edit_prediction_types v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/edit_prediction_types)
+   Compiling emojis v0.9.0
+   Compiling file_icons v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/file_icons)
+   Compiling vim_mode_setting v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/vim_mode_setting)
+   Compiling ordered-float v5.5.0
+   Compiling editor v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/editor)
+   Compiling gpui_platform v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/gpui_platform)
+   Compiling assets v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/assets)
+   Compiling agentwatcher v0.2.0 (/Users/s_avelova/Documents/projects/agentwatcher)
+warning: function `source_line` is never used
+  --> rust/src/style.rs:69:8
+   |
+69 | pub fn source_line(text: &str, p: Palette) -> StyledText {
+   |        ^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `agentwatcher` (bin "agentwatcher") generated 1 warning
+    Finished `dev` profile [optimized] target(s) in 61m 08s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+/Users/s_avelova/Documents/projects/agentwatcher/dist/rust-sol-speed-review-0.2.0/AgentWatcher.app: replacing existing signature
+/Users/s_avelova/Documents/projects/agentwatcher/dist/rust-sol-speed-review-0.2.0/AgentWatcher.app: resource fork, Finder information, or similar detritus not allowed

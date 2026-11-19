@@ -1,0 +1,11 @@
+
+running 6 tests
+test candidate::tests::benchmark_redaction_allocation_path ... ignored, manual same-process redaction performance comparison
+test candidate::tests::redaction_keeps_safe_text_borrowed_and_preserves_public_urls ... ok
+test candidate::tests::redaction_matches_previous_rules_across_safe_and_sensitive_text ... ok
+test candidate::tests::redaction_is_consistent_for_env_nested_json_and_private_urls ... ok
+test candidate::tests::redaction_short_fields_preserve_credentials_at_filter_boundaries ... ok
+test equivalent_to_actual_previous_source ... ok
+
+test result: ok. 5 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.14s
+

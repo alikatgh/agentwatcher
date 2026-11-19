@@ -9,22 +9,29 @@ on:
 jobs:
   build:
     runs-on: macos-15
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-      - name: Install icon tooling
-        run: python3 -m pip install --quiet Pillow
-      - name: Build app and DMG
-        run: bash build.sh
-      - name: Verify signature and DMG
-        run: |
-          codesign --verify --deep --strict "dist/AgentWatcher.app"
-          hdiutil verify "dist/AgentWatcher-0.1.0.dmg"
-      - name: Upload DMG
+          python-version: '3.13'
+      - name: Set up Rust
+        run: rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy
+      - name: Fetch and verify embedded Zed source
+        run: python3 tools/setup_zed_engine.py --fetch
+      - name: Check embedded source tooling
+        run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools -p 'test*zed*.py'
+      - name: Check Rust source
+        run: cargo +1.98.1 fmt --check && cargo +1.98.1 test --locked -j 2
+      - name: Build Rust and GPUI app
+        env:
+          AW_OUTPUT_DIR: dist/rust-ci
+        run: bash build-rust.sh
+      - name: Upload app
         uses: actions/upload-artifact@v4
         with:
-          name: AgentWatcher-dmg
-          path: dist/AgentWatcher-0.1.0.dmg
+          name: AgentWatcher-rust-macos
+          path: |
+            dist/rust-ci/AgentWatcher-0.2.0-macos.zip
+            dist/rust-ci/AgentWatcher-0.2.0-source.tar.gz
           retention-days: 14

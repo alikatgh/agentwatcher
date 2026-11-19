@@ -1,0 +1,20 @@
+{
+  "exit_code": 0,
+  "elapsed_seconds": 43.19,
+  "guard_stop": null,
+  "available_after": 5277343744,
+  "output": null,
+  "command": [
+    "/Users/s_avelova/.cargo/bin/cargo",
+    "test",
+    "--offline",
+    "--locked",
+    "--bin",
+    "agentwatcher",
+    "--lib",
+    "-j",
+    "1",
+    "--",
+    "--test-threads=1"
+  ]
+}

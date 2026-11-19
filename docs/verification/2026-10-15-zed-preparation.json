@@ -1,0 +1,155 @@
+{
+  "date": "2026-10-15",
+  "recorded_at_utc": "2026-10-15T07:23:16.450768+00:00",
+  "session": "01a137ef-4a96-70d0-8499-f5730c657e84",
+  "status": "Preparation and immutable source bridge verified; actual Zed engine integration incomplete.",
+  "source_sha256": {
+    "rust/zed-engine.toml": "11e69fe5079cf116a8ae42387d9ecf24529858965278084cba9ced87e7e97dcc",
+    "tools/zed_engine.py": "257fba56bc6f76d73735011391352fb9c12e47aba354af2fbaeeb19e8f2d6c90",
+    "tools/test_zed_engine.py": "f3c4c733390a59d17d4d5438fb19bcbe48f1024fa693f0b06fd88da9b2440458",
+    "rust/src/editor_source.rs": "18f5fddabb73ad3293c1beeeb899a847afff8bddfbf5c340824076c82f1a51de",
+    "rust/src/lib.rs": "260b784af911413ac934a30e2c641efa65fe640f9a1735b58a0275234f7d6685",
+    "docs/zed-editor-integration.md": "de01740ae828abafd882788bfa9c2fc0286fea982c2b288c0a8dcf2fd5b97f1a",
+    "docs/verification/2026-10-15-zed-dependencies.json": "0a075a47a8af3322e719a4ba8df465f4f20ff613bc9be17fe2ff813e144108a4",
+    "TODO.md": "7f452dddce2c6bb67c90136e1c6fe57bd64b4d242ced0a7c8fe70d0f883d2de2",
+    "Cargo.toml": "87dfd61a2b70ba93a4cd791758d3eb8c3e4948b9b68dfa32077ed8f9e0b2a6ea",
+    "Cargo.lock": "2a35d64336bb6675c781fb51f1bcc098b4ec0384cc74aeae82131a1e849bb01a"
+  },
+  "upstream": {
+    "tag": "v1.25.0-pre",
+    "revision": "aa9c16803dd841950e3d4f4c7ecd76f324e0ba44",
+    "declared_toolchain": "1.98.1",
+    "observed_installed_rustc": "1.94.0",
+    "mandatory_workspace_crates_researched": 99,
+    "cargo_resolved": false
+  },
+  "checks": {
+    "offline_preparation_tests": {
+      "passed": 19,
+      "failed": 0,
+      "command": "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools -p test_zed_engine.py -v"
+    },
+    "exact_source_standalone_tests": {
+      "passed": 13,
+      "failed": 0,
+      "compiler": "stable-aarch64-apple-darwin rustc 1.94.0",
+      "scope": "Actual editor_source.rs; stdlib only, no GPUI/Buffer/clipboard runtime."
+    },
+    "cargo_fmt_check": "passed",
+    "git_diff_check": "passed for tracked files; new sources checked by rustfmt and targeted tests",
+    "manifest_stdout": "passed; no dependency activation or file output",
+    "independent_review": "Preparation and source bridge reviewed read-only. Hidden Git-index modification finding fixed and two regression tests added; narrow re-review found no remaining defect.",
+    "native_build_this_increment": "not run; prior complete GPUI build exhausted disk",
+    "actual_upstream_buffer_normalization_test": "not run; requires pinned source/toolchain/build",
+    "rendered_native_ui": "not run on this increment"
+  },
+  "integration_state": {
+    "upstream_checkout_created": false,
+    "toolchain_installed": false,
+    "root_dependencies_activated": false,
+    "buffer_adapter_wired": false,
+    "new_app_produced": false,
+    "committed_or_pushed": false
+  },
+  "remaining_work": [
+    "Suitable build storage and upstream toolchain",
+    "Resolve dependency graph and complete single-source GPUI migration",
+    "Runtime/Buffer/Editor wiring, revision-checked exact evidence copy and draft serialization",
+    "Pre-mutation byte/line bounds, Buffer read-only capability and bounded engine history",
+    "Native tests, rendered interaction/performance checks and packaging provenance"
+  ],
+  "cache_cleanup": {
+    "chrome": {
+      "method": "Chrome Clear browsing data UI, all time, only Cached images and files selected",
+      "ui_estimated_megabytes": 66.4,
+      "estimate_is_not_measured_physical_recovery": true,
+      "completion_observed": true,
+      "own_settings_tab_closed": true
+    },
+    "exact_roots": [
+      {
+        "root": "/Users/s_avelova/.cargo/registry/cache/index.crates.io-1949cf8c6b5b557f",
+        "files_removed": 488,
+        "changed_or_missing_files_skipped": 0,
+        "directory_preserved": true,
+        "unique_inode_allocated_bytes_before": 47890432,
+        "unique_inodes_before": 488,
+        "remaining_files": 0,
+        "attribution": "Allocated bytes count unique inodes; volume-wide recovery can differ due to hardlinks, APFS and concurrent activity"
+      },
+      {
+        "root": "/Users/s_avelova/Library/Caches/com.alikatgh.agentwatcher/WebKit/NetworkCache",
+        "files_removed": 2616,
+        "changed_or_missing_files_skipped": 0,
+        "directory_preserved": true,
+        "unique_inode_allocated_bytes_before": 49422336,
+        "unique_inodes_before": 2171,
+        "remaining_files": 0,
+        "attribution": "Allocated bytes count unique inodes; volume-wide recovery can differ due to hardlinks, APFS and concurrent activity"
+      }
+    ],
+    "unique_inode_allocated_bytes_in_exact_roots": 97312768,
+    "retained": [
+      "Active Gradle cache files and locks",
+      "Codex runtime/dependency environment",
+      "Active Codex Sparkle installation/updater",
+      "Unknown Gemini updater state",
+      "Sources, installed toolchains/SDKs, user files and histories",
+      "Existing target and all prior app builds"
+    ],
+    "volume_attribution": "APFS, swap and concurrent activity prevent attributing volume-wide changes solely to cleanup."
+  },
+  "storage": {
+    "scratch_asset": "1bc78ace2ca04c1ba1c9fa9b56d9fb1f",
+    "scratch_path": "/private/tmp/codex-session-storage/96cc3865c54bae0fecd8940a/1bc78ace2ca04c1ba1c9fa9b56d9fb1f",
+    "scratch_owner_uid": 501,
+    "scratch_device": 16777234,
+    "scratch_inode": 275363237,
+    "scratch_files_before_cleanup": [
+      {
+        "name": "cache-cleanup-manifest.json",
+        "allocated_bytes": 565248,
+        "logical_bytes": 561371
+      },
+      {
+        "name": "cache-cleanup-result.json",
+        "allocated_bytes": 4096,
+        "logical_bytes": 1015
+      },
+      {
+        "name": "editor-source-tests",
+        "allocated_bytes": 1110016,
+        "logical_bytes": 1109696
+      },
+      {
+        "name": "pinned-dependencies.json",
+        "allocated_bytes": 24576,
+        "logical_bytes": 22962
+      }
+    ],
+    "scratch_allocated_file_bytes_before_cleanup": 1703936,
+    "scratch_cleanup": "completed after exact registered identity, UID, four known disposable files, hardlinks and no-open-handles verification; useful reports preserved in project",
+    "retained_deliverables": [
+      "rust/zed-engine.toml",
+      "tools/zed_engine.py",
+      "tools/test_zed_engine.py",
+      "rust/src/editor_source.rs",
+      "rust/src/lib.rs",
+      "docs/zed-editor-integration.md",
+      "docs/verification/2026-10-15-zed-dependencies.json",
+      "TODO.md",
+      "Cargo.toml",
+      "Cargo.lock"
+    ],
+    "retention_reason": "Project sources, implementation plan, TODO and reproducible verification evidence; needed for the unfinished integration.",
+    "scratch_allocated_file_bytes_removed": 1703936,
+    "remaining_session_scratch_assets": 0,
+    "available_bytes_before_increment": 1003220992,
+    "swap_allocated_bytes_before_increment": 12884901888,
+    "available_bytes_after_cleanup": 1326440448,
+    "swap_allocated_bytes_after_cleanup": 12884901888,
+    "attribution": "Before/after are volume-wide observations. Concurrent activity, swap and APFS prevent assigning their difference to this task.",
+    "preexisting_target_allocated_bytes": 311697408,
+    "preexisting_target_preserved": true
+  }
+}

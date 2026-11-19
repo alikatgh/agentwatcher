@@ -1,0 +1,22 @@
+Embedded Zed source verified: aa9c16803dd841950e3d4f4c7ecd76f324e0ba44; 2 integration patch(es)
+{"file-count": 4444, "record": "/private/tmp/codex-session-storage/96cc3865c54bae0fecd8940a/44a1fd07b63145f0a8b1e96779e1ee54/review-v5/source-inputs.json", "state-sha256": "d68cc02d9789934ec2640138d3b55a02e51cc1823f6e63db2376ec213ffacda4"}
+   Compiling agentwatcher v0.2.0 (/Users/s_avelova/Documents/projects/agentwatcher)
+warning: function `source_line` is never used
+  --> rust/src/style.rs:69:8
+   |
+69 | pub fn source_line(text: &str, p: Palette) -> StyledText {
+   |        ^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `agentwatcher` (bin "agentwatcher") generated 1 warning
+    Finished `dev` profile [optimized] target(s) in 37.75s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+/private/tmp/codex-session-storage/96cc3865c54bae0fecd8940a/44a1fd07b63145f0a8b1e96779e1ee54/review-v5/AgentWatcher.app: replacing existing signature
+{"file-count": 4444, "manifest-sha256": "9dc9565cd63add9dbfed3d48d330470414269c7f60255931592498848bc31126", "output": "/private/tmp/codex-session-storage/96cc3865c54bae0fecd8940a/44a1fd07b63145f0a8b1e96779e1ee54/review-v5/AgentWatcher-0.2.0-source.tar.gz", "sha256": "b6eed54d04223a9000e523166a98ec70ce562332b9ab32ec3fc00d753108dc25", "upstream-revision": "aa9c16803dd841950e3d4f4c7ecd76f324e0ba44"}
+{"file-count": 4444, "inputs-unchanged": true, "record": "/private/tmp/codex-session-storage/96cc3865c54bae0fecd8940a/44a1fd07b63145f0a8b1e96779e1ee54/review-v5/source-inputs.json", "state-sha256": "d68cc02d9789934ec2640138d3b55a02e51cc1823f6e63db2376ec213ffacda4"}
+1316fa9899c7c3a7c1acf96c792660ae8f54827ee5af41a5148e7abddf8a83a9  /private/tmp/codex-session-storage/96cc3865c54bae0fecd8940a/44a1fd07b63145f0a8b1e96779e1ee54/review-v5/AgentWatcher.app/Contents/MacOS/agentwatcher
+d7fa3c7562f8e7ab9d187c488248c5409d06a9870cca88b1fd5c8185d83b2111  /private/tmp/codex-session-storage/96cc3865c54bae0fecd8940a/44a1fd07b63145f0a8b1e96779e1ee54/review-v5/AgentWatcher-0.2.0-macos.zip
+b6eed54d04223a9000e523166a98ec70ce562332b9ab32ec3fc00d753108dc25  /private/tmp/codex-session-storage/96cc3865c54bae0fecd8940a/44a1fd07b63145f0a8b1e96779e1ee54/review-v5/AgentWatcher-0.2.0-source.tar.gz
+Built: /private/tmp/codex-session-storage/96cc3865c54bae0fecd8940a/44a1fd07b63145f0a8b1e96779e1ee54/review-v5/AgentWatcher.app

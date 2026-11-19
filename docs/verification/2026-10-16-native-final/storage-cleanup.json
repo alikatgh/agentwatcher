@@ -1,0 +1,16 @@
+{
+  "session": "01a137ef-4a96-70d0-8499-f5730c657e84",
+  "asset_id": "c7b8f172606d48a98ec535215d061c29",
+  "path": "/private/tmp/codex-session-storage/96cc3865c54bae0fecd8940a/c7b8f172606d48a98ec535215d061c29",
+  "owner_verified_against_ledger": true,
+  "open_paths": 0,
+  "files_removed": 7754,
+  "allocated_bytes_removed": 3118723072,
+  "apparent_bytes_removed": 3094799778,
+  "scope": "Completed session-owned Cargo compiler intermediates, disposable monitors/logs/results and synthetic UI fixture. Matching review app/source archives and compact evidence retained separately. No pre-existing target, vendor sources, toolchains, caches or user files removed.",
+  "retained_synthetic_fixture_files": [
+    "editor-fixture-original.txt",
+    "editor-fixture-saved.txt"
+  ],
+  "time_unix": 1792156720.198418
+}

@@ -1,0 +1,257 @@
+{
+  "recorded_at_utc": "2026-10-14T05:54:16.370558+00:00",
+  "purpose": "Embed Zed UI default IBM Plex Sans and the installed Zed-configured JetBrainsMono NFM face without changing system fonts.",
+  "zed_references": [
+    "https://github.com/zed-industries/zed/blob/main/assets/settings/default.json",
+    "https://github.com/zed-industries/zed-fonts"
+  ],
+  "ibm_plex_revision": "39276912b05f700ee1dd491950c35d8697214208",
+  "nerd_fonts_revision": "b894ea7803af6aade63d60a4381e006098ec9c4d",
+  "nerd_fonts_tag": "v3.5.1",
+  "fonts": [
+    {
+      "file": "IBMPlexSans-Regular.ttf",
+      "source_url": "https://raw.githubusercontent.com/IBM/plex/39276912b05f700ee1dd491950c35d8697214208/packages/plex-sans/fonts/complete/ttf/IBMPlexSans-Regular.ttf",
+      "bytes": 200500,
+      "sha256": "975dcda37d80f038dcd143c22e33ca2d97a0cc5a929aace1c749153b0fe1afa5",
+      "names": {
+        "0": [
+          "Copyright 2018 IBM Corp. All rights reserved."
+        ],
+        "1": [
+          "IBM Plex Sans"
+        ],
+        "2": [
+          "Regular"
+        ],
+        "4": [
+          "IBM Plex Sans"
+        ],
+        "5": [
+          "Version 3.005"
+        ],
+        "6": [
+          "IBMPlexSans"
+        ],
+        "13": [
+          "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL"
+        ],
+        "14": [
+          "http://scripts.sil.org/OFL"
+        ],
+        "16": [],
+        "17": []
+      },
+      "weight_class": 400,
+      "glyph_count": 1019,
+      "coretext_descriptor": {
+        "family": "IBM Plex Sans",
+        "style": "Regular",
+        "postscript_name": "IBMPlexSans"
+      }
+    },
+    {
+      "file": "IBMPlexSans-Medium.ttf",
+      "source_url": "https://raw.githubusercontent.com/IBM/plex/39276912b05f700ee1dd491950c35d8697214208/packages/plex-sans/fonts/complete/ttf/IBMPlexSans-Medium.ttf",
+      "bytes": 202460,
+      "sha256": "331c8639d7598b2cde62a911a71db195e30cb655cd6bdf2e324a7e984955f907",
+      "names": {
+        "0": [
+          "Copyright 2018 IBM Corp. All rights reserved."
+        ],
+        "1": [
+          "IBM Plex Sans Medm"
+        ],
+        "2": [
+          "Regular"
+        ],
+        "4": [
+          "IBM Plex Sans Medm"
+        ],
+        "5": [
+          "Version 3.005"
+        ],
+        "6": [
+          "IBMPlexSans-Medm"
+        ],
+        "13": [
+          "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL"
+        ],
+        "14": [
+          "http://scripts.sil.org/OFL"
+        ],
+        "16": [
+          "IBM Plex Sans"
+        ],
+        "17": [
+          "Medium"
+        ]
+      },
+      "weight_class": 500,
+      "glyph_count": 1019,
+      "coretext_descriptor": {
+        "family": "IBM Plex Sans",
+        "style": "Medium",
+        "postscript_name": "IBMPlexSans-Medm"
+      }
+    },
+    {
+      "file": "IBMPlexSans-SemiBold.ttf",
+      "source_url": "https://raw.githubusercontent.com/IBM/plex/39276912b05f700ee1dd491950c35d8697214208/packages/plex-sans/fonts/complete/ttf/IBMPlexSans-SemiBold.ttf",
+      "bytes": 202632,
+      "sha256": "a20caf8286023a6a7a85e40b1d2a4ae9fc3e3b1f9eda8f4c542dd4986af67bb1",
+      "names": {
+        "0": [
+          "Copyright 2018 IBM Corp. All rights reserved."
+        ],
+        "1": [
+          "IBM Plex Sans SmBld"
+        ],
+        "2": [
+          "Regular"
+        ],
+        "4": [
+          "IBM Plex Sans SmBld"
+        ],
+        "5": [
+          "Version 3.005"
+        ],
+        "6": [
+          "IBMPlexSans-SmBld"
+        ],
+        "13": [
+          "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL"
+        ],
+        "14": [
+          "http://scripts.sil.org/OFL"
+        ],
+        "16": [
+          "IBM Plex Sans"
+        ],
+        "17": [
+          "SemiBold"
+        ]
+      },
+      "weight_class": 600,
+      "glyph_count": 1019,
+      "coretext_descriptor": {
+        "family": "IBM Plex Sans",
+        "style": "SemiBold",
+        "postscript_name": "IBMPlexSans-SmBld"
+      }
+    },
+    {
+      "file": "IBMPlexSans-Italic.ttf",
+      "source_url": "https://raw.githubusercontent.com/IBM/plex/39276912b05f700ee1dd491950c35d8697214208/packages/plex-sans/fonts/complete/ttf/IBMPlexSans-Italic.ttf",
+      "bytes": 207920,
+      "sha256": "a9c6ef9942c49e49d11e11a6dacc0b3a087978757e9b22a06b8ac22a6400fb15",
+      "names": {
+        "0": [
+          "Copyright 2018 IBM Corp. All rights reserved."
+        ],
+        "1": [
+          "IBM Plex Sans"
+        ],
+        "2": [
+          "Italic"
+        ],
+        "4": [
+          "IBM Plex Sans Italic"
+        ],
+        "5": [
+          "Version 3.005"
+        ],
+        "6": [
+          "IBMPlexSans-Italic"
+        ],
+        "13": [
+          "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL"
+        ],
+        "14": [
+          "http://scripts.sil.org/OFL"
+        ],
+        "16": [],
+        "17": []
+      },
+      "weight_class": 400,
+      "glyph_count": 1011,
+      "coretext_descriptor": {
+        "family": "IBM Plex Sans",
+        "style": "Italic",
+        "postscript_name": "IBMPlexSans-Italic"
+      }
+    },
+    {
+      "file": "JetBrainsMonoNerdFontMono-Regular.ttf",
+      "source_url": "https://raw.githubusercontent.com/ryanoasis/nerd-fonts/b894ea7803af6aade63d60a4381e006098ec9c4d/patched-fonts/JetBrainsMono/Ligatures/JetBrainsMonoNerdFontMono-Regular.ttf",
+      "bytes": 2573248,
+      "sha256": "f2a5ea6cfab397445ffab00c0370927b66d61e560a05db5db271b42006381c1a",
+      "names": {
+        "0": [
+          "Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)"
+        ],
+        "1": [
+          "JetBrainsMono NFM"
+        ],
+        "2": [
+          "Regular"
+        ],
+        "4": [
+          "JetBrainsMono NFM Regular"
+        ],
+        "5": [
+          "Version 2.304; ttfautohint (v1.8.4.7-5d5b);Nerd Fonts 3.5.1"
+        ],
+        "6": [
+          "JetBrainsMonoNFM-Regular"
+        ],
+        "13": [
+          "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://scripts.sil.org/OFL"
+        ],
+        "14": [
+          "https://scripts.sil.org/OFL"
+        ],
+        "16": [
+          "JetBrainsMono NFM",
+          "JetBrainsMono Nerd Font Mono"
+        ],
+        "17": []
+      },
+      "weight_class": 400,
+      "glyph_count": 12608,
+      "copied_from": "~/Library/Fonts/JetBrainsMonoNerdFontMono-Regular.ttf",
+      "verified_upstream_git_blob_sha1": "7653ae018f929a9186b328a8a1990178f6afe5c1",
+      "coretext_descriptor": {
+        "family": "JetBrainsMono Nerd Font Mono",
+        "style": "Regular",
+        "postscript_name": "JetBrainsMonoNFM-Regular"
+      }
+    }
+  ],
+  "licenses_and_notices": [
+    {
+      "file": "../../LICENSES/IBM-PLEX-SANS-OFL-1.1.txt",
+      "source_url": "https://raw.githubusercontent.com/IBM/plex/39276912b05f700ee1dd491950c35d8697214208/packages/plex-sans/LICENSE.txt",
+      "bytes": 4456,
+      "sha256": "7e6b2818edbd8f6a01ae80641cc8f16a51080d08fb4e532be3a0b6f74adb07da"
+    },
+    {
+      "file": "../../LICENSES/JETBRAINS-MONO-OFL-1.1.txt",
+      "source_url": "https://raw.githubusercontent.com/ryanoasis/nerd-fonts/b894ea7803af6aade63d60a4381e006098ec9c4d/patched-fonts/JetBrainsMono/Ligatures/OFL.txt",
+      "bytes": 4399,
+      "sha256": "30f0c136e3c88e422d0791acd97238870f9054a9729bc34cf2ff0d4ed8cac4ad"
+    },
+    {
+      "file": "../../LICENSES/NERD-FONTS-3.5.1-LICENSE.txt",
+      "source_url": "https://raw.githubusercontent.com/ryanoasis/nerd-fonts/b894ea7803af6aade63d60a4381e006098ec9c4d/LICENSE",
+      "bytes": 6200,
+      "sha256": "1f6ad4edae6479aaace3112ede5279a23284ae54b2a34db66357aef5f64df160"
+    },
+    {
+      "file": "../../LICENSES/JETBRAINS-MONO-NERD-FONT-NOTICES.md",
+      "source_url": "https://raw.githubusercontent.com/ryanoasis/nerd-fonts/b894ea7803af6aade63d60a4381e006098ec9c4d/patched-fonts/JetBrainsMono/Ligatures/README.md",
+      "bytes": 3832,
+      "sha256": "eaf2685b73fe318c788a218659077042060e950836c25f871af3b35884d14669"
+    }
+  ]
+}

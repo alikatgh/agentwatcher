@@ -27,7 +27,7 @@ else
 fi
 
 # Binary + metadata.
-swiftc -O -swift-version 5 "$ROOT/Sources/main.swift" -o "$APP/Contents/MacOS/AgentWatcher"
+swiftc -O -swift-version 5 "$ROOT"/Sources/*.swift -o "$APP/Contents/MacOS/AgentWatcher"
 cp "$ROOT/Info.plist" "$APP/Contents/Info.plist"
 
 codesign --force --deep --sign - "$APP"

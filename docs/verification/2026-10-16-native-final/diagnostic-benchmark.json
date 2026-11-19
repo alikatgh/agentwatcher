@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "created_at_utc": "2026-10-16T13:16:09+00:00",
+  "status": "comparison_not_established",
+  "project": "/Users/s_avelova/Documents/projects/agentwatcher",
+  "command_arguments": [
+    "--diagnose",
+    "--project",
+    "/Users/s_avelova/Documents/projects/agentwatcher"
+  ],
+  "method": {
+    "warmups_per_binary": 1,
+    "planned_samples_per_binary": 5,
+    "sample_order": "old_v3, final_v5 repeated five times",
+    "concurrency": 1,
+    "per_run_timeout_seconds": 30,
+    "total_run_cap_seconds": 180,
+    "actual_total_run_seconds": 3.477,
+    "capture": "In-memory; stdout/stderr discarded after retaining only numeric timings/counts, status, and error presence."
+  },
+  "binaries": {
+    "old_v3": {
+      "path": "/Users/s_avelova/Documents/projects/agentwatcher/dist/rust-provider-chat-review-0.2.0-v3/AgentWatcher.app/Contents/MacOS/agentwatcher",
+      "size_bytes": 20249920,
+      "sha256": "d5b2597a70670f3b2792d298142af43f67e69229a9d5428ad7681614275d1d5c",
+      "build_profile": {
+        "profile": "dev",
+        "opt_level": null,
+        "debug": null,
+        "incremental": null,
+        "evidence": "Existing v3 verification.json records dev profile; exact options and toolchain are not retained."
+      }
+    },
+    "final_v5": {
+      "path": "/private/tmp/codex-session-storage/96cc3865c54bae0fecd8940a/44a1fd07b63145f0a8b1e96779e1ee54/review-v5/AgentWatcher.app/Contents/MacOS/agentwatcher",
+      "size_bytes": 152531568,
+      "sha256": "1316fa9899c7c3a7c1acf96c792660ae8f54827ee5af41a5148e7abddf8a83a9",
+      "build_profile": {
+        "profile": "dev",
+        "opt_level": 1,
+        "debug": 0,
+        "incremental": false,
+        "toolchain": "1.98.1"
+      }
+    }
+  },
+  "diagnostic_safety_evidence": {
+    "final_v5": "rust/src/main.rs:5015-5028 returns from --diagnose before gpui_platform::application at line 5030.",
+    "old_v3": "Actual packaged arm64 main disassembly: 0x100044990-0x1000449d4 compares length 10 and immediate bytes --diagno + se. Match calls repository/discover/collect, prints JSON, and returns at 0x1000454ac. GPUI construction is the unmatched branch at 0x100044a8c; no GUI path was invoked."
+  },
+  "warmup_counts_comparable": false,
+  "sampling_complete": false,
+  "sampling_note": "Warmup diagnostic failed, timed out, or counts differ; comparative sampling withheld.",
+  "runs": [
+    {
+      "binary": "old_v3",
+      "phase": "warmup",
+      "sample_index": 0,
+      "timeout_seconds": 30,
+      "exit_code": 0,
+      "process_wall_ms": 3170.724,
+      "stderr_bytes_discarded": 0,
+      "status": "passed",
+      "counts": {
+        "commits": 19,
+        "changed_files": 128,
+        "sessions": 30,
+        "records": 261,
+        "children": 0
+      },
+      "timings_ms": {
+        "git_ms": 2927,
+        "catalog_ms": 45,
+        "session_ms": 132
+      },
+      "error_present": false,
+      "stdout_bytes_discarded": 162
+    },
+    {
+      "binary": "final_v5",
+      "phase": "warmup",
+      "sample_index": 0,
+      "timeout_seconds": 30,
+      "exit_code": 0,
+      "process_wall_ms": 306.072,
+      "stderr_bytes_discarded": 0,
+      "status": "passed",
+      "counts": {
+        "commits": 19,
+        "changed_files": 128,
+        "sessions": 30,
+        "records": 83,
+        "children": 0
+      },
+      "timings_ms": {
+        "git_ms": 229,
+        "catalog_ms": 30,
+        "session_ms": 27
+      },
+      "error_present": false,
+      "stdout_bytes_discarded": 159
+    }
+  ],
+  "medians_ms": {},
+  "comparison": {},
+  "caveats": [
+    "Warm OS/filesystem caches after one warmup per binary; not a cold-start benchmark.",
+    "Repository and local agent history can mutate during measurement; matching counts do not prove identical selected trace contents.",
+    "Final build is dev opt-level 1, debug 0, incremental false; old build is recorded as dev but exact options/toolchain are unknown. This is a packaged-build comparison, not an isolated code-change attribution.",
+    "Internal collector timings are integer milliseconds; sub-millisecond changes and ties cannot be resolved.",
+    "Process wall time includes CLI initialization, dynamic loading, collection, serialization and exit; it does not measure application GUI startup, frames, interaction latency or rendering.",
+    "Five samples per binary provide a narrow local observation and no general performance guarantee."
+  ]
+}

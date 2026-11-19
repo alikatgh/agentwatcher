@@ -1,0 +1,10 @@
+Equivalent fixtures: 10407
+Metadata JSON bytes: 4967
+safe prose 4 KiB: 200 calls, before=106.583ms candidate=103.192ms speedup=1.033x
+credential prose 9 KiB: 200 calls, before=321.407ms candidate=309.608ms speedup=1.038x
+safe nested JSON 4 KiB: 200 calls, before=132.345ms candidate=133.782ms speedup=0.989x
+credential nested JSON 9 KiB: 200 calls, before=324.036ms candidate=307.588ms speedup=1.053x
+small telemetry keys and IDs: 5000 calls, before=3.918ms candidate=0.936ms speedup=4.184x
+small credential-bearing fields: 2000 calls, before=2.706ms candidate=2.276ms speedup=1.189x
+metadata-heavy JSON 5 KiB: 200 calls, before=66.688ms candidate=37.002ms speedup=1.802x
+mixed 90% safe prose: 500 calls, before=326.053ms candidate=310.530ms speedup=1.050x

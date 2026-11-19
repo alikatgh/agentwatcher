@@ -1,0 +1,429 @@
+{
+  "date": "2026-10-16",
+  "session": "01a137ef-4a96-70d0-8499-f5730c657e84",
+  "state": "Local v5 native review app linked, packaged, strictly signed, launched and exercised; root suite passed. Full upstream policy, performance and IDE-parity acceptance remains open.",
+  "upstream_revision": "aa9c16803dd841950e3d4f4c7ecd76f324e0ba44",
+  "toolchain": "1.98.1",
+  "delegation": {
+    "model": "gpt-6-astra",
+    "reasoning": "max",
+    "specialists": 5,
+    "roles": [
+      "UI-thread persistence and native lifecycle",
+      "graph speed and launch interaction",
+      "shared theme and pane polish",
+      "collector/redaction throughput",
+      "fresh independent read-only review"
+    ],
+    "routing": "Explicit user override; specialists reused for narrow follow-up checks.",
+    "subsequent_user_override": {
+      "model": "gpt-6.1-sol",
+      "reasoning": "high",
+      "scope": "All further delegated work after the model-change instruction."
+    },
+    "latest_user_override": {
+      "model": "gpt-6.1-sol",
+      "reasoning": "xhigh",
+      "scope": "All further delegated work after latest instruction."
+    }
+  },
+  "source_sha256": {
+    "rust/src/content.rs": "f1666a7f07ee357a52583126d8aea995e4163f9c3ae91374264d06a542a1c7a7",
+    "rust/src/runtime.rs": "799f688b2115fbe8aa8461f937565cac91cd1328e4e17efcd8d8150ecc1035dd",
+    "rust/src/main.rs": "2a9efa70a29f88b3a1afee96f74be25ea22a555e676ab8c675cf1b115c013505",
+    "rust/src/workspace_editor.rs": "8d31e6169751135fa717365bc7a786bcbc8d77931e98fe825456f43c0f3f7fc9",
+    "rust/src/agent_graph.rs": "8b6bf5e2bef84c3b5d0c85b5d70a8a180e14b99ffdcc7d5beaed59f41656e16c",
+    "rust/src/graph_inspector.rs": "d8fb3ac2a75ae81a591346f5fa239a3fd4ba8939658a7fd27a2460f58ffd735c",
+    "rust/src/themes.rs": "a50b02bdbaa7bc6d88bd6f772ae4c527baa2f635e84c0d6ea55f0ff5974b5fdd",
+    "rust/src/chat_panel.rs": "c29556e688a2ed212bb428967dc1546762badab765534cd03302537486ba84dd",
+    "rust/src/catalog_page.rs": "3304558f96136db1e8c689d25affc0e55deef070e9128f9042c01d0b7e647726",
+    "rust/src/settings_panel.rs": "ae1add921f601a9d17041b14c41ddb1b8201e80928933cfc9066782a0d0c5f92",
+    "rust/src/code_view.rs": "16ad98008f48cd62c774f54f73ce8ddc7a32e7fe0217fc1cf507a1b08b874efc",
+    "rust/src/telemetry.rs": "eb7fe25d7d36d7f577f36bc54819feab3235b3f0beaf67fcd1ce03da5cd89302",
+    "rust/vendor/zed/crates/gpui/src/app.rs": "b54d43329adfcf748dcaea26af7791776474c53088ee77cbcb39111af7f82b73",
+    "rust/vendor/zed/crates/gpui/src/platform.rs": "7198415be9d994ae3f0cf911b84c51ac130cccbc1e1d0f6efe3aae3cda3dbcd4",
+    "rust/vendor/zed/crates/gpui_macos/src/platform.rs": "4c43108f8c146f3b7f6fe971af6f573737c7c8bd42df20de602c3efefa1821d9",
+    "rust/zed-patches/0001-bounded-local-buffers.patch": "d6d428c0fb3b3278d728eaa5ed1328680a5c241681f40ddf46400be90e5f0008",
+    "rust/zed-patches/0002-native-quit-request.patch": "d95004c50c1f0744aba35ea2e3e614cdf3b248975fcfffdf78664294c7136489",
+    "rust/zed-patches/files.sha256": "f6bfd3b2ef9a069c48b1616300bdfb1c3eac49fbb1e818339646411aa3cc451a",
+    "build-rust.sh": "0a3def34084ee24f3056399c49c9fc0fe55b631c8f5bf4e876f22a7638a91680",
+    "tools/package_zed_source.py": "65cd27c74e9d723956d8116167e2d7d7d9277da10b2f57121720d576ae511574",
+    "tools/test_zed_bundle_signing.py": "5a3ed98b983ab3e20dd2d0736f2379d141cd701b514318957f9c981c3910a9da"
+  },
+  "changes": [
+    "One ordered off-thread settings writer with a latest pending value, compact status, explicit retry, visible failure and drain semantics.",
+    "AppKit termination defers through the same document, settings and owned-work gates; explicit cancellation rejects the pending native request.",
+    "Graph activity, lifecycle and direct-family state cached across camera frames; exact-provider owned-run lookup avoids formatted keys.",
+    "20-pixel physical launch socket and 24-pixel target; separate bounded launch-body scroll state.",
+    "Removed unused per-line source copies and preview/index caches; upstream Zed owns line layout.",
+    "Short-field credential redaction skips capture replacement only after the same regex reports no match on the current <=64-byte intermediate.",
+    "Required control outlines separated from decorative separators; model/composer widths bounded; Settings header compacted.",
+    "Bound narrow chat header/context rows and truncate flexible labels so New, Transcript, close and Preview remain visible at 300 points.",
+    "Defer the global Quit window update until GPUI restores the dispatch-borrowed window; retain existing document, settings and owned-process gates.",
+    "Clear disallowed extended attributes only from newly assembled app bundles before signing; add a real macOS signing regression. Retain runnable app outside Documents FileProvider and copy ZIP/source deliverables into the repository."
+  ],
+  "checks": {
+    "integrated_final": {
+      "status": "passed",
+      "command": "CARGO_TARGET_DIR=<registered-session-target> CARGO_BUILD_JOBS=1 CARGO_PROFILE_DEV_OPT_LEVEL=0 CARGO_INCREMENTAL=0 cargo check --offline --locked --bin agentwatcher --tests",
+      "elapsed_seconds": 121.12,
+      "exit_code": 0,
+      "reserve_bytes": 268435456,
+      "incremental_target_growth_cap_bytes": 67108864,
+      "target_allocated_before": 1276133376,
+      "target_allocated_after": 1276190720,
+      "available_before": 351551488,
+      "available_after": 359923712,
+      "scope": "Type checking the production application plus root test modules, including actual upstream GPUI/macOS/editor dependencies. Does not execute tests or link the native app.",
+      "warnings": [
+        "Unused legacy style::source_line helper.",
+        "Upstream block 0.1.6 future-incompatibility warning."
+      ]
+    },
+    "earlier_full_source_check": {
+      "status": "passed",
+      "elapsed_seconds": 583.4,
+      "exit_code": 0,
+      "scope": "Earlier revision, before final content/native-quit/redaction corrections. Superseded by final integrated check."
+    },
+    "earlier_incremental_attempt": {
+      "status": "blocked",
+      "elapsed_seconds": 90.48,
+      "exit_code": -2,
+      "available_after": 404418560,
+      "reason": "512 MiB free-space guard stopped the owned process before exhaustion; not a compiler error or passing check."
+    },
+    "content": {
+      "status": "passed",
+      "tests": 6,
+      "scope": "Actual content.rs compiled directly with rustc; exact source bytes, Unicode/line boundaries, ownership transfer."
+    },
+    "runtime": {
+      "status": "passed",
+      "tests": 10,
+      "ignored": 1,
+      "scope": "Actual runtime.rs imported by a tiny standalone harness; Record stub used only by unrelated selection test. Concurrency/persistence tests use production worker implementation."
+    },
+    "graph": {
+      "status": "passed",
+      "tests": 13,
+      "lookup_tests": 1,
+      "scope": "Extracted actual graph/cache helpers and test bodies plus an allocation fixture; serial execution required for shared allocation counter.",
+      "failed_harness_attempt": "Initial default-parallel fixture reported 86 unrelated allocations. Serial suite and isolated allocation run pass; default-parallel run is not counted as passing."
+    },
+    "native_quit": {
+      "status": "passed",
+      "tests": 11,
+      "scope": "Extracted actual native quit state and readiness helpers plus authored tests. Does not execute AppKit termination, Dock Quit, or OS logout.",
+      "cases": [
+        "same-request deferred success",
+        "explicit cancellation",
+        "cancellation wins over queued approval",
+        "fresh request ignores stale work",
+        "10000 duplicate requests coalesce",
+        "reentrant callback",
+        "nonparticipating apps retain normal termination",
+        "settings/owned work readiness",
+        "dirty-document approval",
+        "busy editor completion resumes pending quit"
+      ]
+    },
+    "themes": {
+      "status": "passed",
+      "tests": 10,
+      "normal_text_pairs": 2430,
+      "minimum_normal_text_contrast": 4.5501,
+      "focus_pairs": 243,
+      "minimum_focus_contrast": 3.0523,
+      "required_boundary_pairs": 243,
+      "minimum_required_boundary_contrast": 3.0501,
+      "scope": "Resolved semantic palette color pairs; not rendered accessibility or complete UI verification."
+    },
+    "redaction": {
+      "status": "passed",
+      "tests": 5,
+      "ignored": 1,
+      "equivalence_fixtures": 10407,
+      "new_boundary_cases": 50,
+      "scope": "Verbatim production before/current redaction helper extraction with full-feature regex 1.13.1 and serde_json 1.0.154; synthetic fixtures only. Repeated by primary and fresh reviewer."
+    },
+    "tooling": {
+      "status": "passed",
+      "tests": 70,
+      "preparation": 19,
+      "setup": 19,
+      "source_packaging": 32,
+      "elapsed_seconds": 26.794
+    },
+    "patch_integrity": {
+      "status": "passed",
+      "command": "python3 tools/setup_zed_engine.py",
+      "patches": 2,
+      "full_file_hashes": 6
+    },
+    "format": {
+      "status": "passed",
+      "command": "Installed stable rustfmt --check --edition 2024 --config skip_children=true on the 15 changed Rust source files; project 1.98.1 minimal does not contain rustfmt.",
+      "additional_scope": "Late main.rs and chat_panel.rs scoped stable rustfmt --check passed; git diff --check passed."
+    },
+    "build_script_syntax": {
+      "status": "passed",
+      "command": "bash -n build-rust.sh"
+    },
+    "editor_adapter": {
+      "status": "passed",
+      "tests": 7,
+      "ignored": 0,
+      "scope": "Existing code_view helper tests unchanged with actual ExactSource and extracted production std-only helpers; does not execute native Editor/Buffer or GPUI."
+    },
+    "actual_root_suite": {
+      "status": "passed",
+      "command": "cargo test --offline --locked --bin agentwatcher --lib -j1 -- --test-threads=1",
+      "passed": 319,
+      "failed": 0,
+      "ignored": 5,
+      "lib_passed": 190,
+      "bin_passed": 129,
+      "elapsed_seconds": 43.19,
+      "evidence": "docs/verification/2026-10-16-native-final/root-tests-v5.log",
+      "scope": "Actual integrated root library and binary tests using real pinned dependencies. Includes bounded synthetic subprocess fixtures; excludes dependency-crate test suites."
+    },
+    "native_package": {
+      "status": "passed",
+      "command": "AW_PROFILE=dev AW_OUTPUT_DIR=<retained-review-v5> CARGO_TARGET_DIR=<owned-target> CARGO_BUILD_JOBS=1 bash build-rust.sh",
+      "exit_code": 0,
+      "elapsed_seconds": 71.234,
+      "profile": "dev; opt1; debug0; incremental=false",
+      "strict_deep_codesign": "passed",
+      "zip_integrity": "passed",
+      "archive_binary_hash": "matches signed runnable binary",
+      "source_inputs_unchanged_during_build": true,
+      "evidence": "docs/verification/2026-10-16-native-final/native-package-v5.log",
+      "limits": "Ad hoc local review artifact; not notarized or public release."
+    },
+    "signing_regression": {
+      "status": "passed",
+      "tests": 1,
+      "source_packaging_rerun_passed": 32,
+      "scope": "Actual assembly/signing block with synthetic bundle; FinderInfo and ResourceFork reproduce rejection, cleanup enables strict verification, source bytes/xattrs unchanged."
+    },
+    "upstream_policy_suite": {
+      "status": "blocked",
+      "tests_not_executed": 8,
+      "command": "cargo test --manifest-path rust/vendor/zed/Cargo.toml --offline --locked -j1 -p language --lib test_local_edit_policy_ -- --nocapture --test-threads=1",
+      "exit_code": 101,
+      "reason": "Upstream development-workspace resolution needs uncached Git calloop revision 3759371fee14c40066d64777e2a36b6ffcc22590; offline run stops before compilation. Editor policy tests use the same unresolved development graph.",
+      "scope": "Root test success does not execute these dependency policy tests."
+    },
+    "native_rendered": {
+      "status": "passed for listed cases; broader matrix pending",
+      "artifact": "v5, with unchanged v3 editor/inspector interaction evidence reused",
+      "method": "Native CUA screenshots and direct interaction, 1440x900 logical window / 2880x1800 capture",
+      "cases": [
+        "Select Graph node; output socket becomes compact +; click opens launch form linked to origin without starting work.",
+        "Skills list scrolls independently inside launch form; outer body reaches consent and Start controls.",
+        "Agent inspector scroll reaches final recent-work note; provider/header fixed and graph zoom retained.",
+        "Activity mark opens event evidence. Actual Zed Raw editor scrolls independently of lower inspector details.",
+        "Current workspace AGENTS.md opens in center file tabs left of inspector without overlapping headers.",
+        "Synthetic 719-character paragraph wraps to width; vertical reading and Cmd-Down reach final line.",
+        "Synthetic Unicode paste, undo/redo, dirty indication and Cmd-S save pass; saved bytes exactly equal original CRLF source plus UI_SAVED_MARKER checkmark.",
+        "Recovered displaced file matches exact synthetic original; original user source files were not edited.",
+        "At 300-point chat width New, Transcript, close and Preview remain visible; Preview and Transcript toggles work. At 463 points rows and consent fit. Consent remains unchecked and Send disabled.",
+        "Live switching to Dark, Tokyo Night and back to Light; catalog selection and settings/control boundaries remain readable. Theme picker exposes 25 presets.",
+        "All-loaded Graph fit displays 78 agents at 25%; minus reaches 20% and drag pans without giant launch buttons. Fit restores overview.",
+        "v5 clean Cmd-Q quits the native app; reopening succeeds.",
+        "v5 dirty synthetic file Cmd-Q shows Unsaved files; Keep editing preserves draft and app; undo restores saved state and fixture tab closes cleanly."
+      ],
+      "fixture_saved_sha256": "3a93d8959805ee5a5412957804069ef4d4261527a8338224a03e4ab354c98430",
+      "fixture_saved_bytes": 4263,
+      "fixture_crlf_count": 86,
+      "retained_fixture": "docs/verification/2026-10-16-native-final/editor-fixture-saved.txt",
+      "not_run": [
+        "Dock Quit or OS logout",
+        "Full IME/VoiceOver and clipboard-mode matrix",
+        "All 25 rendered themes and system-appearance transitions",
+        "200% graph socket hit-target interaction",
+        "All other native routes/modes"
+      ]
+    },
+    "packaging_failure_history": {
+      "status": "resolved for v5 output location",
+      "initial_native_compile": "Initial native compile/link finished after 61m08s; packaging failed on disallowed metadata. Guardian result did not retain a trustworthy original process exit code.",
+      "documents_location": "Documents FileProvider reapplied FinderInfo despite bundle-scoped xattr clearing. A strip-disallowed signing attempt returned success but strict verification failed. Existing failed app bundles retained.",
+      "resolution": "Assemble/sign runnable app in registered private temporary review-deliverable directory. ZIP/source/input copies retained under project dist. No FileProvider settings or source attributes changed.",
+      "logs": [
+        "docs/verification/2026-10-16-native-final/native-build.log",
+        "docs/verification/2026-10-16-native-final/native-package-v2.log"
+      ]
+    },
+    "primary_final_artifact": {
+      "status": "passed",
+      "scope": "Primary rechecked current production-code hashes, copied artifact sizes/SHA256, ZIP integrity and embedded binary hash, strict/deep codesign, retained JSON parse, actual test-log totals, late source formatting and git diff whitespace.",
+      "compiler_root_absent": true,
+      "app_retained": true
+    }
+  },
+  "benchmarks": {
+    "content": {
+      "fixture_bytes": 4500000,
+      "lines": 100000,
+      "samples": 9,
+      "previous_median_ns": 6732000,
+      "current_median_ns": 1828209,
+      "previous_constructor_allocations": 100048,
+      "current_constructor_allocations": 0,
+      "previous_retained_index_and_line_bytes": 9542880,
+      "current_retained_index_and_line_bytes": 0,
+      "scope": "CodeContent constructor only; source input allocation excluded; not native UI or end-to-end speed",
+      "speedup": 3.682292341849318,
+      "method": "Nine alternating old/current trials; source cloning outside timing; allocation counter disabled for timings and enabled separately for constructor allocations. Includes production exact-byte/clipped/is_empty equivalence checks.",
+      "baseline_sha256": "6c6e512eb04124e68f9b98b55b8401e5218201e6570913b9969f31eca245ad5a",
+      "reproduction": "Compile docs/verification/2026-10-16-speed-fixtures/content-bench.rs with rustc --edition=2024 -O into registered scratch, then run it."
+    },
+    "graph": {
+      "nodes": 120,
+      "activity_records": 64,
+      "warm_cache_reads": 10000,
+      "heap_allocations": 0,
+      "total_microseconds": 69.875,
+      "scope": "Warm state-cache helper reads only; excludes graph layout, GPUI render/paint and full frame time."
+    },
+    "settings_submission": {
+      "submissions": 10000,
+      "payload_bytes": 4096,
+      "total_microseconds": 2339,
+      "median_ns": 167,
+      "p95_ns": 209,
+      "max_ns": 28667,
+      "writes_after_coalescing": 2,
+      "scope": "Non-GUI submission latency with a blocked background writer; excludes disk latency, process shutdown and GPUI input timing."
+    },
+    "redaction": {
+      "metadata_fixture_bytes": 4967,
+      "metadata_calls": 200,
+      "before_ms": 66.688,
+      "current_ms": 37.002,
+      "speedup": 1.802,
+      "short_ids_keys_speedup": 4.184,
+      "short_credential_speedup": 1.189,
+      "long_fixture_speedup_range": [
+        0.989,
+        1.053
+      ],
+      "method": "Ten warmup rounds, seven alternating-order same-process samples, independent medians; regex compilation excluded. Exact all-eight-case medians and synthetic harness retained alongside this record.",
+      "scope": "Redaction helpers only, not whole-collector or whole-app throughput.",
+      "rejected": "Unbounded RegexSet prefilter and unbounded per-rule is_match both regressed long payloads and were not applied."
+    },
+    "packaged_diagnostic_attempt": {
+      "status": "not comparable",
+      "record": "docs/verification/2026-10-16-native-final/diagnostic-benchmark.json",
+      "old_records": 261,
+      "current_records": 83,
+      "reason": "One warmup per actual binary produced different retained record counts; no alternating samples, ratios, or comparative medians claimed. Process diagnostic wall time is not GUI startup or rendering latency."
+    }
+  },
+  "review": {
+    "status": "No remaining confirmed source defect in reviewed scope.",
+    "reviewer": "Fresh gpt-6-astra/max read-only reviewer.",
+    "resolved_findings": [
+      "Native Dock/OS termination initially bypassed the settings gate.",
+      "Initial corrective cancellation aborted OS logout instead of deferring the pending request."
+    ],
+    "final_review": "Deferred request, same-request reply, cancellation priority, bounded queued work and editor completion reviewed. Redaction separately reviewed and equivalence harness independently executed.",
+    "limits": "Source review plus recorded native checks do not prove Dock/OS termination, complete IME/accessibility or app-wide performance.",
+    "additional_fresh_review": {
+      "reviewer": "gpt-6.1-sol/xhigh, read-only, independent brief",
+      "scope": "Quit-handler change, pinned GPUI action/defer/window lifetime, menu/AppKit dispatch and unchanged document/settings/owned-process guards; packaging signing change separately reviewed.",
+      "result": "No findings. Primary verified final suite, package integrity and native clean/dirty Quit behavior."
+    }
+  },
+  "activation": {
+    "new_model_requests_by_product_during_verification": 0,
+    "real_provider_api_tests": "not run",
+    "agents_started_by_product": "none",
+    "committed": false,
+    "pushed": false,
+    "published": false,
+    "native_binary_linked": true,
+    "new_app_launched": true
+  },
+  "remaining": [
+    "Execute eight upstream GPUI/Buffer/Editor policy tests after resolving the offline development dependency blocker.",
+    "Complete Dock/OS termination, full IME/VoiceOver/clipboard and other native route/mode checks; no forced logout attempted.",
+    "Render all 25 themes and system transitions; verify 200% socket interaction and remaining graph layout states.",
+    "Controlled packaged startup, typing/scroll input latency, graph frame p95, RSS and collector workload comparison against previous binary; unequal diagnostic warmups do not establish a speed ratio.",
+    "Project/LSP, grammar, debugger/collaboration and appropriate single-line field migration remain the documented IDE-parity backlog."
+  ],
+  "storage": {
+    "status": "Session-owned compiler scratch removed; signed review apps and matching source/ZIP deliverables retained.",
+    "owned_root": "/private/tmp/codex-session-storage/96cc3865c54bae0fecd8940a/8c7528ce0ce540c2b20c39ab09e119c3",
+    "source_fixture_deliverable": "docs/verification/2026-10-16-speed-fixtures",
+    "source_fixture_bytes": 53844,
+    "prior_source_archive": "dist/rust-zed-engine-source-0.2.0/AgentWatcher-0.2.0-source.tar.gz",
+    "prior_source_archive_sha256": "f6eb4524ce9bf50a85e60c5653d2edc6acd147c604071fe5bd2a65ec6b6515a9",
+    "child_cleanup": {
+      "graph_initial_bytes": 2347008,
+      "shared_ui_bytes": 2781184,
+      "persistence_review_bytes": 1544192,
+      "redaction_final_bytes": 5599232,
+      "redaction_compiler_cache_bytes": 26173440
+    },
+    "volume_wide_attribution": "Free-space changes include swap, other processes and APFS; not attributed solely to this task.",
+    "prior_check_scratch": "Previously present source-check scratch unexpectedly absent on readonly verification after user steering; no deletion performed by the latest worker and no attribution made.",
+    "native_build_headroom_bytes": 12591513600,
+    "owned_root_removed": "/private/tmp/codex-session-storage/96cc3865c54bae0fecd8940a/c7b8f172606d48a98ec535215d061c29",
+    "compiler_scratch_allocated_bytes_removed": 3118723072,
+    "compiler_scratch_files_removed": 7754,
+    "retained_review_root": "/private/tmp/codex-session-storage/96cc3865c54bae0fecd8940a/44a1fd07b63145f0a8b1e96779e1ee54",
+    "retained_review_allocated_bytes": 702644224,
+    "retained_review_reason": "Current signed runnable v5 plus earlier review rollback builds outside Documents FileProvider.",
+    "next_cleanup_condition": "After user replaces or installs the retained review builds elsewhere.",
+    "final_available_bytes": 8506241024,
+    "final_swap_allocated_bytes": 7516192768,
+    "cleanup_record": "docs/verification/2026-10-16-native-final/storage-cleanup.json",
+    "retained_archive_allocated_bytes": 81289216,
+    "unchanged_control_roots_allocated_bytes": {
+      "project_target": 311701504,
+      "vendored_zed_source": 126910464,
+      "project_toolchain": 457216000
+    },
+    "retained_synthetic_recovery": {
+      "path": "/Users/s_avelova/Library/Application Support/AgentWatcher/Recovery/80730-2-1792153611843416000.backup",
+      "bytes": 4244,
+      "reason": "Exact displaced synthetic fixture original from native save verification; no user recovery versions removed."
+    }
+  },
+  "artifacts": {
+    "record": "docs/verification/2026-10-16-native-final/artifacts.json",
+    "runnable_app": "/private/tmp/codex-session-storage/96cc3865c54bae0fecd8940a/44a1fd07b63145f0a8b1e96779e1ee54/review-v5/AgentWatcher.app",
+    "binary_sha256": "1316fa9899c7c3a7c1acf96c792660ae8f54827ee5af41a5148e7abddf8a83a9",
+    "copies": [
+      {
+        "path": "/Users/s_avelova/Documents/projects/agentwatcher/dist/rust-sol-speed-review-0.2.0-v5/AgentWatcher-0.2.0-macos.zip",
+        "size_bytes": 48861391,
+        "sha256": "d7fa3c7562f8e7ab9d187c488248c5409d06a9870cca88b1fd5c8185d83b2111"
+      },
+      {
+        "path": "/Users/s_avelova/Documents/projects/agentwatcher/dist/rust-sol-speed-review-0.2.0-v5/AgentWatcher-0.2.0-source.tar.gz",
+        "size_bytes": 30460544,
+        "sha256": "b6eed54d04223a9000e523166a98ec70ce562332b9ab32ec3fc00d753108dc25"
+      },
+      {
+        "path": "/Users/s_avelova/Documents/projects/agentwatcher/dist/rust-sol-speed-review-0.2.0-v5/source-inputs.json",
+        "size_bytes": 1957903,
+        "sha256": "16f71c3ee7f9422a6e8cc22ea20f6ed9be6e2d442a194ed1c19524a7a42a3ebc"
+      }
+    ],
+    "build": {
+      "profile": "dev",
+      "opt_level": 1,
+      "debug": 0,
+      "incremental": false,
+      "toolchain": "1.98.1",
+      "upstream_revision": "aa9c16803dd841950e3d4f4c7ecd76f324e0ba44",
+      "source_input_state_sha256": "d68cc02d9789934ec2640138d3b55a02e51cc1823f6e63db2376ec213ffacda4",
+      "source_file_count": 4444
+    },
+    "source_archive_scope": "Exact build-source snapshot captured before final native verification/documentation updates; production code hashes match v5. Later verification reports are retained separately."
+  }
+}

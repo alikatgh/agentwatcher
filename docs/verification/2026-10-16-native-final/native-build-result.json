@@ -1,0 +1,16 @@
+{
+  "recovered_monitor": true,
+  "original_guard_failure": "FileNotFoundError while enumerating a renamed compiler temporary directory; compiler process continued.",
+  "build_process_group": 41384,
+  "reserve_bytes": 2147483648,
+  "allocation_cap_bytes": 10737418240,
+  "status": "failed",
+  "stop_reason": null,
+  "build_completed_marker": false,
+  "exit_code": null,
+  "exit_code_note": "Original parent monitor exited; child process exit status unavailable. Independent artifact and source checks are required.",
+  "recovery_elapsed_seconds": 1053.16,
+  "available_after": 5611765760,
+  "scratch_allocated_bytes": 3085533184,
+  "output_allocated_bytes": 154857472
+}

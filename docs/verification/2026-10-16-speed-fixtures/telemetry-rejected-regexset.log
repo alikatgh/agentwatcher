@@ -1,0 +1,18 @@
+   Compiling agentwatcher-redaction-check v0.0.0 (/private/tmp/codex-session-storage/1272c1d8e896de828cd9e6ee/d1f15879b1cd46aeac80a87553e048d0)
+warning: stripping debug info with `rust-objcopy` failed: signal: 6 (SIGABRT)
+  |
+  = note: dyld[38420]: Library not loaded: @rpath/libLLVM.dylib
+            Referenced from: <AC0D75A8-23BF-301F-B7CE-3E5CC0C1BC06> /Users/s_avelova/.rustup/toolchains/1.98.1-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/rust-objcopy
+            Reason: tried: '/Users/s_avelova/.rustup/toolchains/1.98.1-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/Users/s_avelova/.rustup/toolchains/1.98.1-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/private/tmp/codex-session-storage/1272c1d8e896de828cd9e6ee/d1f15879b1cd46aeac80a87553e048d0/target/debug/deps/libLLVM.dylib' (no such file), '/Users/s_avelova/lib/libLLVM.dylib' (no such file), '/usr/local/lib/libLLVM.dylib' (no such file), '/usr/lib/libLLVM.dylib' (no such file, not in dyld cache)
+          
+
+warning: `agentwatcher-redaction-check` (bin "redaction-check") generated 1 warning
+    Finished `dev` profile [optimized] target(s) in 4.29s
+     Running `target/debug/redaction-check`
+Equivalent fixtures: 10407
+safe prose 4 KiB: 500 calls, before=182.995ms candidate=564.923ms speedup=0.324x
+credential prose 9 KiB: 500 calls, before=665.858ms candidate=1215.191ms speedup=0.548x
+safe nested JSON 4 KiB: 500 calls, before=221.497ms candidate=608.629ms speedup=0.364x
+credential nested JSON 9 KiB: 500 calls, before=843.127ms candidate=1391.088ms speedup=0.606x
+small telemetry keys and IDs: 5000 calls, before=1.580ms candidate=0.424ms speedup=3.723x
+mixed 90% safe prose: 1000 calls, before=445.149ms candidate=1081.656ms speedup=0.412x

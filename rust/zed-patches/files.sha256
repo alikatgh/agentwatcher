@@ -1,0 +1,6 @@
+fc067727808ba3fc7a83764d444456ba20d27cebe51af1f7cfc09a1ad995bebe  crates/editor/src/editor.rs
+1ad744086b2aa09e6dd5e9a4d79efd538b1850fd3f4df68179fe18dca629fd58  crates/editor/src/input.rs
+b54d43329adfcf748dcaea26af7791776474c53088ee77cbcb39111af7f82b73  crates/gpui/src/app.rs
+7198415be9d994ae3f0cf911b84c51ac130cccbc1e1d0f6efe3aae3cda3dbcd4  crates/gpui/src/platform.rs
+4c43108f8c146f3b7f6fe971af6f573737c7c8bd42df20de602c3efefa1821d9  crates/gpui_macos/src/platform.rs
+fd38632a60c4ff9d5b97730ce88927424c761b745646304b4850e1622bd7a375  crates/language/src/buffer.rs

@@ -1,0 +1,416 @@
+{
+  "research_date": "2026-10-15",
+  "status": "Source-validated manifest preparation only; no Cargo resolution, compilation, source checkout, dependency download or runtime integration performed.",
+  "pin": {
+    "repo": "https://github.com/zed-industries/zed",
+    "tag": "v1.25.0-pre",
+    "rev": "aa9c16803dd841950e3d4f4c7ecd76f324e0ba44",
+    "declared_toolchain": "1.98.1",
+    "observed_available_toolchain": "1.94.0",
+    "source": "https://github.com/zed-industries/zed/blob/aa9c16803dd841950e3d4f4c7ecd76f324e0ba44/rust-toolchain.toml"
+  },
+  "constraints": {
+    "storage": "Parent observed 957 MiB free; source/dependency/build allocation withheld.",
+    "file_scope": "This one registered session scratch JSON report only.",
+    "allocation": "Small report (<100 KiB), no other files allocated."
+  },
+  "direct_dependencies": {
+    "gpui": {
+      "package": "gpui",
+      "git": "https://github.com/zed-industries/zed",
+      "rev": "aa9c16803dd841950e3d4f4c7ecd76f324e0ba44",
+      "default-features": false
+    },
+    "gpui_platform": {
+      "package": "gpui_platform",
+      "git": "https://github.com/zed-industries/zed",
+      "rev": "aa9c16803dd841950e3d4f4c7ecd76f324e0ba44",
+      "default-features": false,
+      "features": [
+        "font-kit",
+        "runtime_shaders"
+      ]
+    },
+    "zed_editor": {
+      "package": "editor",
+      "git": "https://github.com/zed-industries/zed",
+      "rev": "aa9c16803dd841950e3d4f4c7ecd76f324e0ba44",
+      "default-features": false
+    },
+    "zed_language": {
+      "package": "language",
+      "git": "https://github.com/zed-industries/zed",
+      "rev": "aa9c16803dd841950e3d4f4c7ecd76f324e0ba44",
+      "default-features": false
+    },
+    "zed_multi_buffer": {
+      "package": "multi_buffer",
+      "git": "https://github.com/zed-industries/zed",
+      "rev": "aa9c16803dd841950e3d4f4c7ecd76f324e0ba44",
+      "default-features": false
+    },
+    "zed_settings": {
+      "package": "settings",
+      "git": "https://github.com/zed-industries/zed",
+      "rev": "aa9c16803dd841950e3d4f4c7ecd76f324e0ba44",
+      "default-features": false
+    },
+    "zed_theme": {
+      "package": "theme",
+      "git": "https://github.com/zed-industries/zed",
+      "rev": "aa9c16803dd841950e3d4f4c7ecd76f324e0ba44",
+      "default-features": false
+    },
+    "zed_theme_settings": {
+      "package": "theme_settings",
+      "git": "https://github.com/zed-industries/zed",
+      "rev": "aa9c16803dd841950e3d4f4c7ecd76f324e0ba44",
+      "default-features": false
+    },
+    "zed_release_channel": {
+      "package": "release_channel",
+      "git": "https://github.com/zed-industries/zed",
+      "rev": "aa9c16803dd841950e3d4f4c7ecd76f324e0ba44",
+      "default-features": false
+    },
+    "zed_util": {
+      "package": "util",
+      "git": "https://github.com/zed-industries/zed",
+      "rev": "aa9c16803dd841950e3d4f4c7ecd76f324e0ba44",
+      "default-features": false,
+      "features": [
+        "debug-embed"
+      ]
+    }
+  },
+  "direct_dependency_rationale": {
+    "gpui": "Keep the external crate named gpui because every existing app module already uses gpui and upstream entities must have exactly the same source identity.",
+    "gpui_platform": "Native application bootstrap plus macOS font-kit and runtime_shaders. Upstream gpui itself does not expose runtime_shaders at this pin.",
+    "zed_editor": "Actual editor package, aliased to avoid confusion with local editing modules.",
+    "zed_language": "Local Buffer constructor and language types.",
+    "zed_multi_buffer": "Use directly only if the adapter constructs or inspects MultiBuffer; removable for an adapter exclusively calling Editor::for_buffer.",
+    "zed_settings": "Default settings store and keymap parser.",
+    "zed_theme": "Theme registry and theme types; removable as direct dependency if the adapter only uses theme_settings reexports.",
+    "zed_theme_settings": "Theme initialization and customization.",
+    "zed_release_channel": "Global app/release metadata initialization; exact required globals owned by adapter agent.",
+    "zed_util": "Required debug-build embedding feature unification; no runtime calls needed."
+  },
+  "minimum_manifest_shape": "[dependencies]\ngpui = { package = \"gpui\", git = \"https://github.com/zed-industries/zed\", rev = \"aa9c16803dd841950e3d4f4c7ecd76f324e0ba44\", default-features = false }\ngpui_platform = { package = \"gpui_platform\", git = \"https://github.com/zed-industries/zed\", rev = \"aa9c16803dd841950e3d4f4c7ecd76f324e0ba44\", default-features = false, features = [\"font-kit\", \"runtime_shaders\"] }\nzed_editor = { package = \"editor\", git = \"https://github.com/zed-industries/zed\", rev = \"aa9c16803dd841950e3d4f4c7ecd76f324e0ba44\", default-features = false }\nzed_language = { package = \"language\", git = \"https://github.com/zed-industries/zed\", rev = \"aa9c16803dd841950e3d4f4c7ecd76f324e0ba44\", default-features = false }\nzed_multi_buffer = { package = \"multi_buffer\", git = \"https://github.com/zed-industries/zed\", rev = \"aa9c16803dd841950e3d4f4c7ecd76f324e0ba44\", default-features = false }\nzed_settings = { package = \"settings\", git = \"https://github.com/zed-industries/zed\", rev = \"aa9c16803dd841950e3d4f4c7ecd76f324e0ba44\", default-features = false }\nzed_theme = { package = \"theme\", git = \"https://github.com/zed-industries/zed\", rev = \"aa9c16803dd841950e3d4f4c7ecd76f324e0ba44\", default-features = false }\nzed_theme_settings = { package = \"theme_settings\", git = \"https://github.com/zed-industries/zed\", rev = \"aa9c16803dd841950e3d4f4c7ecd76f324e0ba44\", default-features = false }\nzed_release_channel = { package = \"release_channel\", git = \"https://github.com/zed-industries/zed\", rev = \"aa9c16803dd841950e3d4f4c7ecd76f324e0ba44\", default-features = false }\nzed_util = { package = \"util\", git = \"https://github.com/zed-industries/zed\", rev = \"aa9c16803dd841950e3d4f4c7ecd76f324e0ba44\", default-features = false, features = [\"debug-embed\"] }\n\n[patch.crates-io]\ntree-sitter-language = { git = \"https://github.com/tree-sitter/tree-sitter\", rev = \"43623ec9bf0eaaf7113285c46e8a09018f181b18\" }\nasync-task = { git = \"https://github.com/zed-industries/async-task.git\", rev = \"015845a19fc31752c02367567d3b8900a406f9da\" }\nasync-process = { git = \"https://github.com/zed-industries/async-process.git\", rev = \"0b6d6713570af61806e1e5cb40e0f757cb93fd9d\" }\nnotify = { git = \"https://github.com/zed-industries/notify\", rev = \"d842f16b2716bd60f09caf3ae3a894237ab38f54\" }\nnotify-types = { git = \"https://github.com/zed-industries/notify\", rev = \"d842f16b2716bd60f09caf3ae3a894237ab38f54\" }\n",
+  "manifest_qualification": "This is a precise source-supported dependency/patch shape, not a Cargo-tested manifest. Remove unused direct types after adapter compilation. No optional editor feature removes Project/Workspace from its dependency graph.",
+  "mandatory_macos_workspace_closure": {
+    "count": 99,
+    "packages": [
+      "agent_settings",
+      "askpass",
+      "breadcrumbs",
+      "buffer_diff",
+      "client",
+      "clock",
+      "cloud_api_client",
+      "cloud_api_types",
+      "cloud_llm_client",
+      "collections",
+      "component",
+      "context_server",
+      "credentials_provider",
+      "dap",
+      "db",
+      "derive_refineable",
+      "edit_prediction_types",
+      "editor",
+      "env_var",
+      "extension",
+      "feature_flags",
+      "feature_flags_macros",
+      "file_content",
+      "file_icons",
+      "fs",
+      "fuzzy",
+      "fuzzy_nucleo",
+      "git",
+      "git_hosting_providers",
+      "gpui",
+      "gpui_apple",
+      "gpui_macos",
+      "gpui_macros",
+      "gpui_platform",
+      "gpui_shared_string",
+      "gpui_tokio",
+      "gpui_util",
+      "http_client",
+      "http_client_tls",
+      "icons",
+      "language",
+      "language_core",
+      "language_detection",
+      "language_model",
+      "language_model_core",
+      "lsp",
+      "markdown",
+      "menu",
+      "mermaid_render",
+      "migrator",
+      "multi_buffer",
+      "net",
+      "node_runtime",
+      "oauth_callback_server",
+      "path",
+      "paths",
+      "prettier",
+      "project",
+      "proto",
+      "proxy_handshake",
+      "refineable",
+      "release_channel",
+      "remote",
+      "rope",
+      "rpc",
+      "scheduler",
+      "session",
+      "settings",
+      "settings_content",
+      "settings_json",
+      "settings_macros",
+      "snippet",
+      "snippet_provider",
+      "sqlez",
+      "sqlez_macros",
+      "sum_tree",
+      "syntax_theme",
+      "task",
+      "telemetry",
+      "telemetry_events",
+      "terminal",
+      "text",
+      "theme",
+      "theme_settings",
+      "ui",
+      "ui_input",
+      "ui_macros",
+      "util",
+      "vim_mode_setting",
+      "watch",
+      "workspace",
+      "worktree",
+      "zed_actions",
+      "zed_credentials_provider",
+      "zed_env_vars",
+      "zeta_prompt",
+      "zlog",
+      "ztracing",
+      "ztracing_macro"
+    ],
+    "method": "Recursively read pinned workspace manifests into memory; merge workspace dependency features, activated/default features and optional feature dependencies; include normal/build dependencies under aarch64 macOS/Unix cfg; exclude dev-dependencies and test-support. Roots editor, gpui, gpui_platform(font-kit,runtime_shaders). Adding util/debug-embed does not add workspace crates. This is a source-level internal closure, not a complete resolved Cargo package graph.",
+    "important_edges": {
+      "editor": [
+        "project",
+        "workspace",
+        "language",
+        "multi_buffer",
+        "settings",
+        "theme",
+        "theme_settings",
+        "ui",
+        "ui_input",
+        "client",
+        "rpc",
+        "db",
+        "git",
+        "markdown"
+      ],
+      "client": [
+        "cloud_api_client",
+        "cloud_api_types",
+        "cloud_llm_client",
+        "worktree"
+      ],
+      "project": [
+        "terminal",
+        "node_runtime",
+        "prettier",
+        "remote",
+        "extension"
+      ],
+      "markdown": [
+        "mermaid_render"
+      ],
+      "language": [
+        "tree-sitter[wasm]"
+      ],
+      "settings": [
+        "settings_json[editing]"
+      ],
+      "settings_json": [
+        "tree-sitter",
+        "tree-sitter-json"
+      ]
+    },
+    "nonoptional_native_external": [
+      "Tree-sitter C compilation",
+      "wasmtime-c-api-impl 48.0.0 with cranelift,gc,gc-null via language tree-sitter[wasm]",
+      "bundled libsqlite3-sys 0.30.1",
+      "zstd native code",
+      "macOS framework bindings",
+      "cbindgen shader header generation"
+    ],
+    "not_in_selected_closure": [
+      "livekit",
+      "libwebrtc",
+      "webrtc-sys",
+      "cpal",
+      "extension_host",
+      "languages",
+      "grammars"
+    ],
+    "cross_platform_resolution_caution": "Cargo lock generation resolves additional target-dependent packages. metadata --filter-platform filters output but is not proof those source fetches are avoided. The 99 count concerns the selected macOS compilation source graph."
+  },
+  "macos_root_patches": {
+    "tree-sitter-language": {
+      "git": "https://github.com/tree-sitter/tree-sitter",
+      "rev": "43623ec9bf0eaaf7113285c46e8a09018f181b18"
+    },
+    "async-task": {
+      "git": "https://github.com/zed-industries/async-task.git",
+      "rev": "015845a19fc31752c02367567d3b8900a406f9da"
+    },
+    "async-process": {
+      "git": "https://github.com/zed-industries/async-process.git",
+      "rev": "0b6d6713570af61806e1e5cb40e0f757cb93fd9d"
+    },
+    "notify": {
+      "git": "https://github.com/zed-industries/notify",
+      "rev": "d842f16b2716bd60f09caf3ae3a894237ab38f54"
+    },
+    "notify-types": {
+      "git": "https://github.com/zed-industries/notify",
+      "rev": "d842f16b2716bd60f09caf3ae3a894237ab38f54"
+    }
+  },
+  "patch_evidence": {
+    "root_patch_inheritance": "An external Git dependency workspace root patch table is not inherited by the consuming AgentWatcher root. Carry selected patch entries in AgentWatcher root.",
+    "tree-sitter-language": {
+      "reason": "Source/type identity: pinned tree-sitter uses its workspace LanguageFn; registry tree-sitter-json produces registry tree-sitter-language LanguageFn unless root patch unifies source. tree_sitter::Language::new takes LanguageFn and From<LanguageFn> impl is tied to source identity.",
+      "source": "https://github.com/tree-sitter/tree-sitter/blob/43623ec9bf0eaaf7113285c46e8a09018f181b18/lib/binding_rust/lib.rs#L511"
+    },
+    "async-task": {
+      "reason": "Upstream exact fork fixes task waker vtable identity and redundant readiness wakeups; mandatory consumers gpui,scheduler,gpui_apple. Preserve behavior even where registry may compile.",
+      "source": "https://github.com/zed-industries/async-task/commit/015845a19fc31752c02367567d3b8900a406f9da"
+    },
+    "async-process": {
+      "reason": "smol transitive dependency; upstream fork adds adopting child process by PID on macOS. Preserve pinned upstream behavior; all call sites requiring fork not exhaustively proved.",
+      "source": "https://github.com/zed-industries/async-process/commit/0b6d6713570af61806e1e5cb40e0f757cb93fd9d"
+    },
+    "notify": {
+      "reason": "Mandatory fs dependency requires version 9.0.0-rc.4; exact fork adds FsEventStreamStart error reporting. Preserve selected macOS filesystem semantics.",
+      "source": "https://github.com/zed-industries/notify/commit/d842f16b2716bd60f09caf3ae3a894237ab38f54"
+    },
+    "notify-types": {
+      "reason": "Companion patched dependency from the same notify revision; upstream lock has version 2.1.0.",
+      "source": "https://github.com/zed-industries/zed/blob/aa9c16803dd841950e3d4f4c7ecd76f324e0ba44/Cargo.lock"
+    },
+    "excluded_patches": "cpal/livekit/libwebrtc/webrtc-sys absent selected graph; calloop/khronos-egl Linux-specific; windows-capture Windows-specific. Adding unrelated patch entries may force extra source fetches; do not blindly copy entire upstream patch table.",
+    "scratch": {
+      "reason": "Local tooling/corgi/patches/scratch is explicitly a Corgi-compatible replacement to avoid embedded OUT_DIR sharing. Normal Cargo integration does not inherit the upstream patch and does not need to copy that local path. If scratch is reached through a CXX external build dependency, registry scratch is the normal Cargo implementation; selected macOS source closure has no direct scratch/CXX dependency. External transitive closure not exhaustively resolved.",
+      "source": "https://github.com/zed-industries/zed/blob/aa9c16803dd841950e3d4f4c7ecd76f324e0ba44/tooling/corgi/patches/scratch/src/lib.rs"
+    }
+  },
+  "assets_and_build": {
+    "debug_asset_fix": {
+      "dependency": "zed_util = { package = \"util\", git = \"https://github.com/zed-industries/zed\", rev = \"aa9c16803dd841950e3d4f4c7ecd76f324e0ba44\", default-features = false, features = [\"debug-embed\"] }",
+      "reason": "Without debug-embed, util::fs_embed! debug mode finds the running app repo through .git and reads root-relative assets there. settings::init calls settings/default.json through SettingsAssets and panics if absent. debug-embed unifies the feature across upstream util and embeds each crate-relative pinned asset at compile time. Release already embeds. No source patch/fork needed.",
+      "sources": [
+        "https://github.com/zed-industries/zed/blob/aa9c16803dd841950e3d4f4c7ecd76f324e0ba44/crates/util/Cargo.toml#L21",
+        "https://github.com/zed-industries/zed/blob/aa9c16803dd841950e3d4f4c7ecd76f324e0ba44/crates/util/src/util.rs#L760",
+        "https://github.com/zed-industries/zed/blob/aa9c16803dd841950e3d4f4c7ecd76f324e0ba44/crates/util/src/util.rs#L1088",
+        "https://github.com/zed-industries/zed/blob/aa9c16803dd841950e3d4f4c7ecd76f324e0ba44/crates/settings/src/settings.rs#L135"
+      ]
+    },
+    "upstream_layout": "Preserve pinned full repository layout. Cargo Git checkout preserves sibling paths automatically; a hand-extracted editor subtree is insufficient.",
+    "shader_source_reads": {
+      "source": "https://github.com/zed-industries/zed/blob/aa9c16803dd841950e3d4f4c7ecd76f324e0ba44/crates/gpui_apple/build.rs",
+      "requires": [
+        "crates/gpui_apple/src/metal_renderer.rs",
+        "crates/gpui_apple/src/shaders.metal",
+        "crates/gpui/src/scene.rs",
+        "crates/gpui/src/geometry.rs",
+        "crates/gpui/src/color.rs",
+        "crates/gpui/src/window.rs",
+        "crates/gpui/src/platform.rs"
+      ],
+      "outputs": [
+        "OUT_DIR/scene.h",
+        "OUT_DIR/stitched_shaders.metal with runtime_shaders"
+      ],
+      "behavior": "cbindgen reads ../gpui source at build-script runtime. runtime_shaders stitches source instead of calling xcrun metal/metallib. Metal shader compilation still occurs at application runtime."
+    },
+    "selected_build_scripts": [
+      "crates/gpui/build.rs",
+      "crates/gpui_apple/build.rs",
+      "crates/proto/build.rs",
+      "crates/release_channel/build.rs",
+      "crates/ui/build.rs",
+      "crates/ztracing/build.rs"
+    ],
+    "proto": "proto/build.rs uses protox and prost-build on proto/zed.proto; no external protoc invocation in this script.",
+    "xcode_sdk": "ui/build.rs still invokes xcrun --sdk macosx --show-sdk-version; runtime_shaders does not remove the Xcode/SDK prerequisite.",
+    "settings_assets": [
+      "assets/settings/*",
+      "assets/keymaps/*"
+    ],
+    "optional_general_assets_crate": "editor assets dependency is optional/test-support only. Adding upstream assets directly is convenient for complete icon/theme/font assets but not mandatory for Editor types; its AssetSource bundles fonts/icons/images/themes/sounds/prompts/*.md. AgentWatcher may supply its own AssetSource containing needed editor UI icons, themes and existing fonts.",
+    "upstream_general_asset_patterns": [
+      "assets/fonts/**/*",
+      "assets/icons/**/*",
+      "assets/images/**/*",
+      "assets/themes/**/*",
+      "assets/sounds/**/*",
+      "assets/prompts/**/*",
+      "assets/*.md"
+    ],
+    "fonts": "Upstream contains IBM Plex Sans and Lilex; AgentWatcher retains required IBM Plex Sans and JetBrains Mono with upstream font licenses. Adding assets crate does not supply JetBrains Mono.",
+    "submodules": {
+      "count": 0,
+      "evidence": "GitHub recursive tree API for immutable revision returned truncated=false, no mode=160000 entries; .gitmodules raw path 404.",
+      "url": "https://api.github.com/repos/zed-industries/zed/git/trees/aa9c16803dd841950e3d4f4c7ecd76f324e0ba44?recursive=1"
+    }
+  },
+  "source_provenance_urls": [
+    "https://github.com/zed-industries/zed/blob/aa9c16803dd841950e3d4f4c7ecd76f324e0ba44/Cargo.toml",
+    "https://github.com/zed-industries/zed/blob/aa9c16803dd841950e3d4f4c7ecd76f324e0ba44/Cargo.lock",
+    "https://github.com/zed-industries/zed/blob/aa9c16803dd841950e3d4f4c7ecd76f324e0ba44/crates/editor/Cargo.toml",
+    "https://github.com/zed-industries/zed/blob/aa9c16803dd841950e3d4f4c7ecd76f324e0ba44/crates/gpui/Cargo.toml",
+    "https://github.com/zed-industries/zed/blob/aa9c16803dd841950e3d4f4c7ecd76f324e0ba44/crates/gpui_platform/Cargo.toml",
+    "https://github.com/zed-industries/zed/blob/aa9c16803dd841950e3d4f4c7ecd76f324e0ba44/crates/gpui_macos/Cargo.toml",
+    "https://github.com/zed-industries/zed/blob/aa9c16803dd841950e3d4f4c7ecd76f324e0ba44/crates/gpui_apple/Cargo.toml",
+    "https://github.com/zed-industries/zed/blob/aa9c16803dd841950e3d4f4c7ecd76f324e0ba44/crates/gpui_apple/build.rs",
+    "https://github.com/zed-industries/zed/blob/aa9c16803dd841950e3d4f4c7ecd76f324e0ba44/crates/settings/src/settings.rs",
+    "https://github.com/zed-industries/zed/blob/aa9c16803dd841950e3d4f4c7ecd76f324e0ba44/crates/util/Cargo.toml",
+    "https://github.com/zed-industries/zed/blob/aa9c16803dd841950e3d4f4c7ecd76f324e0ba44/crates/util/src/util.rs",
+    "https://github.com/zed-industries/zed/blob/aa9c16803dd841950e3d4f4c7ecd76f324e0ba44/crates/assets/src/assets.rs",
+    "https://github.com/zed-industries/zed/blob/aa9c16803dd841950e3d4f4c7ecd76f324e0ba44/crates/project/Cargo.toml",
+    "https://github.com/zed-industries/zed/blob/aa9c16803dd841950e3d4f4c7ecd76f324e0ba44/crates/workspace/Cargo.toml",
+    "https://github.com/zed-industries/zed/blob/aa9c16803dd841950e3d4f4c7ecd76f324e0ba44/crates/language/Cargo.toml"
+  ],
+  "later_small_metadata_experiment": {
+    "prerequisite": "User-provided suitable build volume, toolchain 1.98.1, measured/registered source/cache/output allocations. Metadata still fetches source/dependencies and can consume substantial storage; no metadata was run here.",
+    "steps": [
+      "Create a small registered scratch binary package with exact direct deps/root patch entries above; do not alter current root Cargo.lock merely to experiment.",
+      "Use isolated task-owned CARGO_TARGET_DIR and measured CARGO_HOME/source cache on approved volume; select toolchain explicitly rather than changing global defaults.",
+      "cargo +1.98.1 generate-lockfile --manifest-path \"$task_probe/Cargo.toml\"",
+      "cargo +1.98.1 metadata --locked --format-version 1 --filter-platform aarch64-apple-darwin --manifest-path \"$task_probe/Cargo.toml\" > \"$task_probe/metadata.json\"",
+      "cargo +1.98.1 tree --locked --target aarch64-apple-darwin -d --manifest-path \"$task_probe/Cargo.toml\"",
+      "Confirm all gpui/editor/language/multi_buffer/settings/theme util sources use exact same git revision, only one GPUI source, util debug-embed feature, and exact required patch source pins.",
+      "Only after metadata passes: cargo +1.98.1 check --locked --manifest-path \"$task_probe/Cargo.toml\"; add real minimal Editor init and one local Buffer, compile/launch offline."
+    ]
+  },
+  "known_unknowns": [
+    "No cargo metadata/generate-lockfile completed: exact resolved external graph and Cargo resolution are unverified.",
+    "No build: Rust 1.98.1 compatibility, macro expansion, linker frameworks and compiler errors remain unverified.",
+    "No runtime: embedding fix is source-supported, not launch-tested; initialization globals/actions owned by adapter investigation.",
+    "The 99-workspace-crate closure is precise source enumeration under stated cfg/features; external native transitive dependencies and all target resolver additions not exhaustively enumerated.",
+    "No license completeness claim: upstream editor and most application crates declare GPL-3.0-or-later, GPUI/platform/util Apache-2.0; distribution notices need full resolved artifact audit.",
+    "Cargo Git dependencies generally fetch a repository rather than only selected crates; source-cache footprint unknown and not measured.",
+    "No upstream local scratch path copied; need confirm selected external build graph after actual metadata.",
+    "No API/LSP/network/cloud activation authorized by dependency inclusion; constructors and active-service gates remain separate implementation work."
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "date": "2026-10-15",
+  "status": "source/core/documentation checks passed; complete native build and rendered verification blocked by disk exhaustion",
+  "source_sha256": {
+    "rust/src/themes.rs": "d5b3fc386f983524b9ad84c9f48bade2463837b4086164bbf2a1062a710bd1f1",
+    "rust/src/style.rs": "4d2a9dd17cf9856d651931285d64d163ac96bc341190a1988b5abdb4fa5e4207",
+    "rust/src/settings_panel.rs": "f80bb83c1375ff8ceaa7d8dafd65776943b5a962192f49f4b0a8cfdd54033f5d",
+    "rust/src/backend.rs": "ffa66e048ea294238fd64706f5012b7bd1e07535ef0de8c196611667379a8cf2",
+    "rust/src/telemetry.rs": "8bd1002a1c46db44036b80e2916f1fc7eeffa971f5ab99724b91bfd5fa2af924",
+    "rust/src/agent_graph.rs": "22137713749df9b6670e290c185e558dffe49b82743067afffd8a56902d4cc9c",
+    "rust/src/file_actions.rs": "08a7cf9f7c0cf18ae53b8fc88845c3ef0c07a83d571e89cca23982dd0c6dec37",
+    "rust/src/workspace_editor.rs": "8339a2e7d2897170fb9e950b031b49efcf5f7f79f733cda64158fe068a22a04a",
+    "rust/src/main.rs": "6893fbd03280c33124a0f6ff72ef5734795519bc833906eccd0304290cb50285",
+    "rust/src/lib.rs": "24165582415d0d47005d903e2d26fc4fdfd8db2f2d0cef978d129b622ab69793",
+    "rust/src/graph_inspector.rs": "b17423c00b84e7862a3be7ffa55555d32a6ef8c2dce743b182ded6775731d0bd",
+    "build-rust.sh": "f762bcd6a4b93c0c229d2dd67fd843089e4ff3a5b5c816ed982664923673885a",
+    "docs/zed-editor-integration.md": "38a9e8d7bf2ca12bf2ab1869fc1e02972bf76bcdc574a53d7b39d2cff7ed82a4",
+    "TODO.md": "d263c0652b27b84022f614430eb3bf39e47e6d57d4686b9f70ef32543cad574b"
+  },
+  "core_tests": {
+    "passed": 167,
+    "ignored": 3,
+    "scope": "actual library sources via small offline harness; GPUI binary modules excluded"
+  },
+  "theme_tests": {
+    "passed": 9,
+    "contrast_pairs": 2430,
+    "minimum_normal_text": 4.5,
+    "minimum_focus": 3
+  },
+  "format": "passed",
+  "build_script_syntax": "passed",
+  "independent_source_review": "no introduced defect found; existing synchronous settings persistence remains",
+  "documentation_review": "shortcut mismatch corrected; no material coverage gaps",
+  "redaction_benchmark": "\nrunning 1 test\nRedaction (1,000 mixed 4\u20139 KiB records, median of 3): previous 1029.08 ms, current 1085.71 ms, 0.95x\ntest telemetry::tests::benchmark_redaction_allocation_path ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 169 filtered out; finished in 6.50s\n\n",
+  "native_build": "attempted; blocked by environmental ENOSPC while compiling gpui; no updated app produced",
+  "native_ui": "not run on updated source; previous build was inspected and closed with no dirty-draft prompt",
+  "zed_engine": "documentation and TODO only; implementation deferred by user",
+  "storage": {
+    "scratch_owned_bytes": 83857408,
+    "preexisting_target_bytes": 311697408,
+    "cleanup": "completed; exact registered root identity, owner, closed processes and disposable inventory verified; original sources, preexisting target and all app builds preserved",
+    "completed_core_compiler_bytes_removed": 80470016,
+    "owned_root_bytes_removed": 1101926400,
+    "remaining_session_assets": 0,
+    "available_bytes_after_cleanup": 1326346240,
+    "swap_allocated_bytes_after_cleanup": 12616466432,
+    "volume_wide_change_attribution": "Free-space and swap changes include other processes and APFS; not attributed solely to this task"
+  },
+  "native_build_log_tail": "   Compiling gpui-macros v0.2.2\n   Compiling num_cpus v1.17.0\n   Compiling raw-window-handle v0.6.2\n   Compiling seahash v4.1.0\n   Compiling inventory v0.3.25\nerror: failed to write /private/tmp/codex-session-storage/96cc3865c54bae0fecd8940a/12df2820b9674f498805ebb2fe29df94/target/debug/deps/rustcEfF0bs/lib.rmeta: No space left on device (os error 28)\n\nerror: could not compile `gpui` (lib) due to 1 previous error",
+  "full_binary_tests": "blocked by native compilation failure; not run"
+}

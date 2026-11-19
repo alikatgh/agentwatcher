@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "verified_at_utc": "2026-10-16T13:04:31+00:00",
+  "version": "0.2.0",
+  "review_revision": "v5",
+  "build": {
+    "profile": "dev",
+    "opt_level": 1,
+    "debug": 0,
+    "incremental": false,
+    "toolchain": "1.98.1",
+    "upstream_revision": "aa9c16803dd841950e3d4f4c7ecd76f324e0ba44",
+    "source_input_state_sha256": "d68cc02d9789934ec2640138d3b55a02e51cc1823f6e63db2376ec213ffacda4",
+    "source_file_count": 4444
+  },
+  "artifacts": [
+    {
+      "path": "/Users/s_avelova/Documents/projects/agentwatcher/dist/rust-sol-speed-review-0.2.0-v5/AgentWatcher-0.2.0-macos.zip",
+      "size_bytes": 48861391,
+      "sha256": "d7fa3c7562f8e7ab9d187c488248c5409d06a9870cca88b1fd5c8185d83b2111"
+    },
+    {
+      "path": "/Users/s_avelova/Documents/projects/agentwatcher/dist/rust-sol-speed-review-0.2.0-v5/AgentWatcher-0.2.0-source.tar.gz",
+      "size_bytes": 30460544,
+      "sha256": "b6eed54d04223a9000e523166a98ec70ce562332b9ab32ec3fc00d753108dc25"
+    },
+    {
+      "path": "/Users/s_avelova/Documents/projects/agentwatcher/dist/rust-sol-speed-review-0.2.0-v5/source-inputs.json",
+      "size_bytes": 1957903,
+      "sha256": "16f71c3ee7f9422a6e8cc22ea20f6ed9be6e2d442a194ed1c19524a7a42a3ebc"
+    }
+  ],
+  "app_binary": {
+    "path": "/private/tmp/codex-session-storage/96cc3865c54bae0fecd8940a/44a1fd07b63145f0a8b1e96779e1ee54/review-v5/AgentWatcher.app/Contents/MacOS/agentwatcher",
+    "size_bytes": 152531568,
+    "sha256": "1316fa9899c7c3a7c1acf96c792660ae8f54827ee5af41a5148e7abddf8a83a9"
+  },
+  "archive_binary": {
+    "archive_path": "/Users/s_avelova/Documents/projects/agentwatcher/dist/rust-sol-speed-review-0.2.0-v5/AgentWatcher-0.2.0-macos.zip",
+    "member": "AgentWatcher.app/Contents/MacOS/agentwatcher",
+    "size_bytes": 152531568,
+    "sha256": "1316fa9899c7c3a7c1acf96c792660ae8f54827ee5af41a5148e7abddf8a83a9"
+  },
+  "verification": {
+    "copied_checksums": "passed",
+    "zip_testzip": {
+      "status": "passed",
+      "first_bad_member": null
+    },
+    "archive_binary_sha256": "passed",
+    "codesign": {
+      "status": "passed",
+      "exit_code": 0,
+      "command": [
+        "codesign",
+        "--verify",
+        "--deep",
+        "--strict",
+        "--verbose=2",
+        "/private/tmp/codex-session-storage/96cc3865c54bae0fecd8940a/44a1fd07b63145f0a8b1e96779e1ee54/review-v5/AgentWatcher.app"
+      ],
+      "verified_app_location": "/private/tmp/codex-session-storage/96cc3865c54bae0fecd8940a/44a1fd07b63145f0a8b1e96779e1ee54/review-v5/AgentWatcher.app"
+    },
+    "tests": {
+      "status": "passed",
+      "exit_code": 0,
+      "passed": 319,
+      "ignored": 5,
+      "failed": 0,
+      "command": [
+        "/Users/s_avelova/.cargo/bin/cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--bin",
+        "agentwatcher",
+        "--lib",
+        "-j",
+        "1",
+        "--",
+        "--test-threads=1"
+      ],
+      "elapsed_seconds": 43.19
+    },
+    "package": {
+      "status": "passed",
+      "exit_code": 0,
+      "command": [
+        "bash",
+        "build-rust.sh"
+      ],
+      "elapsed_seconds": 71.234
+    }
+  },
+  "evidence_files": [
+    {
+      "path": "/Users/s_avelova/Documents/projects/agentwatcher/docs/verification/2026-10-16-native-final/root-tests-v5.log",
+      "size_bytes": 32162,
+      "sha256": "f6a387ebddbf6c35fac69dbfe9eabcc9cd3f68a24a5e40da37ecdb45564b5163"
+    },
+    {
+      "path": "/Users/s_avelova/Documents/projects/agentwatcher/docs/verification/2026-10-16-native-final/root-tests-v5-result.json",
+      "size_bytes": 326,
+      "sha256": "ec941b2588a8c194af5a0c6c187763289e851053a81cba92a63397d75e1e7b04"
+    },
+    {
+      "path": "/Users/s_avelova/Documents/projects/agentwatcher/docs/verification/2026-10-16-native-final/native-package-v5.log",
+      "size_bytes": 2592,
+      "sha256": "d8f64997c95dea5682b8ea353dd114a1ea66076f9b8c7ffaf1504e2055dd9452"
+    },
+    {
+      "path": "/Users/s_avelova/Documents/projects/agentwatcher/docs/verification/2026-10-16-native-final/native-package-v5-result.json",
+      "size_bytes": 275,
+      "sha256": "9c43486089ede79501d48ae76b5bc6008a379d781e84b266f5b7b99286959b64"
+    },
+    {
+      "path": "/Users/s_avelova/Documents/projects/agentwatcher/docs/verification/2026-10-16-native-final/codesign-v5.log",
+      "size_bytes": 293,
+      "sha256": "b97dca39cc9f0be4476fe802b5d97974722f18703ebb05288004b5e6f0c3fdf7"
+    }
+  ],
+  "retention": {
+    "copied_app_bundle": false,
+    "reason": "Retain ZIP instead of an app bundle under Documents; strict codesign verified the original temporary app."
+  },
+  "warnings": [
+    "Package log reports unused source_line and future incompatibility in block v0.1.6."
+  ],
+  "scope": "Artifact integrity and retained build/test evidence only; UI verification and repository revision status are tracked by the primary agent."
+}

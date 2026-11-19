@@ -1,0 +1,493 @@
+diff --git a/crates/gpui/src/app.rs b/crates/gpui/src/app.rs
+index cdbd559..b4c7214 100644
+--- a/crates/gpui/src/app.rs
++++ b/crates/gpui/src/app.rs
+@@ -1232,6 +1232,39 @@ impl App {
+         self.platform.quit();
+     }
+ 
++    /// Installs a gate for native quit requests, including macOS Dock Quit and
++    /// logout. Returning false defers the current request while the application
++    /// shows confirmation UI or saves. Call [`App::quit`] after approval; it
++    /// rechecks this callback before completing the original native request.
++    /// Call [`App::cancel_native_quit`] only when the user cancels that request.
++    ///
++    /// Only one callback is retained. This is opt-in and currently supported on
++    /// macOS; it does not change other platforms' quit behavior. A request that
++    /// arrives during an App borrow remains pending instead of bypassing the gate.
++    pub fn on_native_quit_requested(&self, mut callback: impl FnMut(&mut App) -> bool + 'static) {
++        let app = self.this.clone();
++        self.platform.on_quit_requested(Box::new(move || {
++            let Some(app) = app.upgrade() else {
++                return true;
++            };
++            let Ok(mut app) = app.try_borrow_mut() else {
++                return false;
++            };
++            app.update(|cx| callback(cx))
++        }));
++    }
++
++    /// Whether a native quit request is awaiting confirmation or pending work.
++    pub fn native_quit_pending(&self) -> bool {
++        self.platform.native_quit_pending()
++    }
++
++    /// Cancels the pending native quit, including an OS logout or shutdown.
++    /// Call this only after an explicit user decision to keep the app open.
++    pub fn cancel_native_quit(&self) {
++        self.platform.cancel_native_quit();
++    }
++
+     /// Switches the platform between headless and windowed modes.
+     ///
+     /// On Linux, headless means no display server: windows opened afterwards lay out and handle
+diff --git a/crates/gpui/src/platform.rs b/crates/gpui/src/platform.rs
+index c08d964..95aea14 100644
+--- a/crates/gpui/src/platform.rs
++++ b/crates/gpui/src/platform.rs
+@@ -455,6 +455,17 @@ pub trait Platform: 'static {
+     fn open_with_system(&self, path: &Path);
+ 
+     fn on_quit(&self, callback: Box<dyn FnMut() -> bool>);
++    /// Registers an optional gate before a native termination request proceeds.
++    /// Return false to defer this request and later call `quit` after approval,
++    /// or `cancel_native_quit` if the user cancels. Unsupported platforms keep
++    /// their existing behavior.
++    fn on_quit_requested(&self, _callback: Box<dyn FnMut() -> bool>) {}
++    /// Whether a deferred native quit request is still awaiting a decision.
++    fn native_quit_pending(&self) -> bool {
++        false
++    }
++    /// Rejects a deferred native termination request after an explicit cancel.
++    fn cancel_native_quit(&self) {}
+     fn on_reopen(&self, callback: Box<dyn FnMut()>);
+     /// Registers the callback invoked when the system is about to sleep.
+     fn on_system_sleep(&self, callback: Box<dyn FnMut()>);
+diff --git a/crates/gpui_macos/src/platform.rs b/crates/gpui_macos/src/platform.rs
+index f053856..99be760 100644
+--- a/crates/gpui_macos/src/platform.rs
++++ b/crates/gpui_macos/src/platform.rs
+@@ -55,7 +55,7 @@ use parking_lot::Mutex;
+ use ptr::null_mut;
+ use semver::Version;
+ use std::{
+-    cell::Cell,
++    cell::{Cell, RefCell},
+     ffi::{CStr, OsStr, c_void},
+     os::{raw::c_char, unix::ffi::OsStrExt},
+     path::{Path, PathBuf},
+@@ -100,6 +100,10 @@ unsafe fn build_classes() {
+                 sel!(applicationShouldHandleReopen:hasVisibleWindows:),
+                 should_handle_reopen as extern "C" fn(&mut Object, Sel, id, bool),
+             );
++            decl.add_method(
++                sel!(applicationShouldTerminate:),
++                should_terminate as extern "C" fn(&mut Object, Sel, id) -> NSUInteger,
++            );
+             decl.add_method(
+                 sel!(applicationWillTerminate:),
+                 will_terminate as extern "C" fn(&mut Object, Sel, id),
+@@ -195,6 +199,8 @@ pub(crate) struct MacPlatformState {
+     on_system_wake: Option<Box<dyn FnMut()>>,
+     system_power_observers_registered: bool,
+     quit: Option<Box<dyn FnMut() -> bool>>,
++    quit_requested: Option<QuitRequestCallback>,
++    native_quit: NativeQuitState,
+     menu_command: Option<Box<dyn FnMut(&dyn Action)>>,
+     validate_menu_command: Option<Box<dyn FnMut(&dyn Action) -> bool>>,
+     will_open_menu: Option<Box<dyn FnMut()>>,
+@@ -258,6 +264,8 @@ impl MacPlatform {
+             find_pasteboard: Pasteboard::find(),
+             reopen: None,
+             quit: None,
++            quit_requested: None,
++            native_quit: NativeQuitState::default(),
+             menu_command: None,
+             validate_menu_command: None,
+             will_open_menu: None,
+@@ -279,6 +287,64 @@ impl MacPlatform {
+         Self(state, marker)
+     }
+ 
++    fn check_native_quit(&self) {
++        let request = { self.0.lock().native_quit.queue_check() };
++        let Some(request) = request else { return };
++        let context = Box::into_raw(Box::new(NativeQuitDispatch {
++            platform: self,
++            request,
++        }));
++        unsafe {
++            DispatchQueue::main().exec_async_f(context.cast(), check);
++        }
++
++        extern "C" fn check(context: *mut c_void) {
++            // The platform owns AppKit's running application and remains alive
++            // until its main run loop ends. This callback runs on that loop.
++            let context = unsafe { Box::from_raw(context.cast::<NativeQuitDispatch>()) };
++            let platform = unsafe { &*context.platform };
++            let callback = {
++                let mut state = platform.0.lock();
++                if !state.native_quit.take_check(context.request) {
++                    return;
++                }
++                state.quit_requested.clone()
++            };
++            if native_quit_approved(callback.as_ref()) {
++                platform.reply_to_native_quit(context.request, true);
++            }
++        }
++    }
++
++    fn reply_to_native_quit(&self, request: u64, allowed: bool) {
++        if !self.0.lock().native_quit.queue_reply(request, allowed) {
++            return;
++        }
++        let context = Box::into_raw(Box::new(NativeQuitDispatch {
++            platform: self,
++            request,
++        }));
++        unsafe {
++            DispatchQueue::main().exec_async_f(context.cast(), reply);
++        }
++
++        extern "C" fn reply(context: *mut c_void) {
++            let context = unsafe { Box::from_raw(context.cast::<NativeQuitDispatch>()) };
++            let platform = unsafe { &*context.platform };
++            let allowed = { platform.0.lock().native_quit.take_reply(context.request) };
++            if let Some(allowed) = allowed {
++                // Never hold a platform lock or App borrow across AppKit's
++                // synchronous termination callbacks.
++                unsafe {
++                    let app = NSApplication::sharedApplication(nil);
++                    let _: () = msg_send![app,
++                        replyToApplicationShouldTerminate: if allowed { YES } else { NO }
++                    ];
++                }
++            }
++        }
++    }
++
+     unsafe fn create_menu_bar(
+         &self,
+         menus: &Vec<Menu>,
+@@ -598,15 +664,23 @@ impl Platform for MacPlatform {
+         // this, we make quitting the application asynchronous so that we aren't holding borrows to
+         // the app state on the stack when we actually terminate the app.
+ 
+-        unsafe {
+-            DispatchQueue::main().exec_async_f(ptr::null_mut(), quit);
++        let pending = { self.0.lock().native_quit.request_id() };
++        if pending.is_some() {
++            self.check_native_quit();
++            return;
+         }
+ 
+-        extern "C" fn quit(_: *mut c_void) {
+-            unsafe {
+-                let app = NSApplication::sharedApplication(nil);
+-                let _: () = msg_send![app, terminate: nil];
+-            }
++        unsafe {
++            let app = NSApplication::sharedApplication(nil);
++            // NSTerminateLater enters a modal run loop. Run terminate: as a
++            // run-loop selector, not inside a serial main-queue block that would
++            // prevent queued GPUI work and the eventual reply from progressing.
++            // waitUntilDone:NO also defers delivery when called on the main thread.
++            let _: () = msg_send![app,
++                performSelectorOnMainThread: sel!(terminate:)
++                withObject: nil
++                waitUntilDone: NO
++            ];
+         }
+     }
+ 
+@@ -1064,6 +1138,21 @@ impl Platform for MacPlatform {
+         self.0.lock().quit = Some(callback);
+     }
+ 
++    fn on_quit_requested(&self, callback: Box<dyn FnMut() -> bool>) {
++        self.0.lock().quit_requested = Some(Rc::new(RefCell::new(callback)));
++    }
++
++    fn native_quit_pending(&self) -> bool {
++        self.0.lock().native_quit.is_waiting()
++    }
++
++    fn cancel_native_quit(&self) {
++        let request = { self.0.lock().native_quit.request_id() };
++        if let Some(request) = request {
++            self.reply_to_native_quit(request, false);
++        }
++    }
++
+     fn on_reopen(&self, callback: Box<dyn FnMut()>) {
+         self.0.lock().reopen = Some(callback);
+     }
+@@ -1378,6 +1467,266 @@ extern "C" fn should_handle_reopen(this: &mut Object, _: Sel, _: id, has_open_wi
+     }
+ }
+ 
++type QuitRequestCallback = Rc<RefCell<Box<dyn FnMut() -> bool>>>;
++
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++enum NativeQuitDecision {
++    Now,
++    Deferred,
++    Check(u64),
++}
++
++impl NativeQuitDecision {
++    fn response(self) -> NSUInteger {
++        // NSApplicationTerminateReply: Now = 1, Later = 2. Only an explicit
++        // cancellation replies NO; deferring must not abort OS logout/shutdown.
++        match self {
++            Self::Now => 1,
++            Self::Deferred | Self::Check(_) => 2,
++        }
++    }
++}
++
++struct PendingNativeQuit {
++    request: u64,
++    check_queued: bool,
++    reply: Option<bool>,
++}
++
++#[derive(Default)]
++struct NativeQuitState {
++    next_request: u64,
++    pending: Option<PendingNativeQuit>,
++}
++
++impl NativeQuitState {
++    fn begin(&mut self, has_callback: bool) -> NativeQuitDecision {
++        if self.pending.is_some() {
++            return NativeQuitDecision::Deferred;
++        }
++        if !has_callback {
++            return NativeQuitDecision::Now;
++        }
++        self.next_request = self.next_request.wrapping_add(1);
++        self.pending = Some(PendingNativeQuit {
++            request: self.next_request,
++            check_queued: false,
++            reply: None,
++        });
++        NativeQuitDecision::Check(self.next_request)
++    }
++
++    fn request_id(&self) -> Option<u64> {
++        self.pending.as_ref().map(|pending| pending.request)
++    }
++
++    fn is_waiting(&self) -> bool {
++        self.pending
++            .as_ref()
++            .is_some_and(|pending| pending.reply.is_none())
++    }
++
++    fn queue_check(&mut self) -> Option<u64> {
++        let pending = self.pending.as_mut()?;
++        if pending.reply.is_some() || pending.check_queued {
++            return None;
++        }
++        pending.check_queued = true;
++        Some(pending.request)
++    }
++
++    fn take_check(&mut self, request: u64) -> bool {
++        let Some(pending) = self.pending.as_mut() else {
++            return false;
++        };
++        if pending.request != request || !pending.check_queued || pending.reply.is_some() {
++            return false;
++        }
++        pending.check_queued = false;
++        true
++    }
++
++    fn queue_reply(&mut self, request: u64, allowed: bool) -> bool {
++        let Some(pending) = self.pending.as_mut() else {
++            return false;
++        };
++        if pending.request != request {
++            return false;
++        }
++        let needs_dispatch = pending.reply.is_none();
++        // Explicit cancellation wins over an approval that is still queued.
++        pending.reply = Some(pending.reply.unwrap_or(true) && allowed);
++        needs_dispatch
++    }
++
++    fn take_reply(&mut self, request: u64) -> Option<bool> {
++        let pending = self.pending.as_ref()?;
++        if pending.request != request {
++            return None;
++        }
++        let reply = pending.reply?;
++        self.pending = None;
++        Some(reply)
++    }
++}
++
++struct NativeQuitDispatch {
++    platform: *const MacPlatform,
++    request: u64,
++}
++
++fn native_quit_approved(callback: Option<&QuitRequestCallback>) -> bool {
++    callback.is_none_or(|callback| {
++        // App or callback reentry remains deferred; it never cancels an OS
++        // request or silently bypasses the application gate.
++        callback
++            .try_borrow_mut()
++            .is_ok_and(|mut callback| callback())
++    })
++}
++
++extern "C" fn should_terminate(this: &mut Object, _: Sel, _: id) -> NSUInteger {
++    let platform = unsafe { get_mac_platform(this) };
++    let (decision, callback) = {
++        let mut state = platform.0.lock();
++        let callback = state.quit_requested.clone();
++        (state.native_quit.begin(callback.is_some()), callback)
++    };
++    // Duplicate/reentrant requests share one pending decision. Do not retain
++    // platform locks across application callbacks or AppKit calls.
++    if let NativeQuitDecision::Check(request) = decision {
++        if native_quit_approved(callback.as_ref()) {
++            platform.reply_to_native_quit(request, true);
++        }
++    }
++    decision.response()
++}
++
++#[cfg(test)]
++mod native_quit_tests {
++    use super::{NativeQuitDecision, NativeQuitState, QuitRequestCallback, native_quit_approved};
++    use std::{
++        cell::{Cell, RefCell},
++        rc::Rc,
++    };
++
++    fn deferred_request(state: &mut NativeQuitState) -> u64 {
++        let decision = state.begin(true);
++        assert_eq!(decision.response(), 2);
++        let NativeQuitDecision::Check(request) = decision else {
++            panic!("expected a new request")
++        };
++        request
++    }
++
++    #[test]
++    fn applications_without_a_quit_gate_keep_native_termination() {
++        let mut state = NativeQuitState::default();
++        assert_eq!(state.begin(false).response(), 1);
++        assert!(!state.is_waiting());
++        assert_eq!(state.queue_check(), None);
++    }
++
++    #[test]
++    fn deferred_request_finishes_with_one_reply_after_success() {
++        let mut state = NativeQuitState::default();
++        let ready = Rc::new(Cell::new(false));
++        let callback_ready = ready.clone();
++        let callback: QuitRequestCallback =
++            Rc::new(RefCell::new(Box::new(move || callback_ready.get())));
++        let request = deferred_request(&mut state);
++        assert!(!native_quit_approved(Some(&callback)));
++        assert!(state.is_waiting());
++        assert_eq!(state.take_reply(request), None);
++        assert_eq!(state.queue_check(), Some(request));
++        assert!(state.take_check(request));
++        assert!(!native_quit_approved(Some(&callback)));
++        assert_eq!(state.take_reply(request), None);
++        // A completed save or process shutdown makes the same request ready.
++        ready.set(true);
++        assert_eq!(state.queue_check(), Some(request));
++        assert!(state.take_check(request));
++        assert!(native_quit_approved(Some(&callback)));
++        assert!(state.queue_reply(request, true));
++        assert!(!state.is_waiting());
++        assert!(!state.queue_reply(request, true));
++        assert_eq!(state.take_reply(request), Some(true));
++        assert_eq!(state.take_reply(request), None);
++        assert_eq!(state.request_id(), None);
++    }
++
++    #[test]
++    fn explicit_cancel_overrides_a_queued_approval() {
++        let mut state = NativeQuitState::default();
++        let request = deferred_request(&mut state);
++        assert!(state.queue_reply(request, true));
++        assert!(!state.queue_reply(request, false));
++        assert!(!state.queue_reply(request, true));
++        assert!(!state.is_waiting());
++        assert_eq!(state.queue_check(), None);
++        assert_eq!(state.take_reply(request), Some(false));
++    }
++
++    #[test]
++    fn explicit_cancel_allows_a_fresh_request_without_accepting_stale_work() {
++        let mut state = NativeQuitState::default();
++        let previous = deferred_request(&mut state);
++        assert_eq!(state.queue_check(), Some(previous));
++        assert!(state.queue_reply(previous, false));
++        assert_eq!(state.take_reply(previous), Some(false));
++        let current = deferred_request(&mut state);
++        assert_ne!(previous, current);
++        assert_eq!(state.queue_check(), Some(current));
++        assert!(!state.take_check(previous));
++        assert!(!state.queue_reply(previous, true));
++        assert_eq!(state.take_reply(previous), None);
++        assert!(state.is_waiting());
++        assert!(state.take_check(current));
++        assert!(state.queue_reply(current, true));
++        assert_eq!(state.take_reply(current), Some(true));
++    }
++
++    #[test]
++    fn duplicate_native_requests_and_poll_checks_are_coalesced() {
++        let mut state = NativeQuitState::default();
++        let request = deferred_request(&mut state);
++        assert_eq!(state.queue_check(), Some(request));
++        for _ in 0..10_000 {
++            assert_eq!(state.begin(true), NativeQuitDecision::Deferred);
++            assert_eq!(state.begin(true).response(), 2);
++            assert_eq!(state.queue_check(), None);
++        }
++        assert!(state.take_check(request));
++        // A not-yet-ready callback leaves the request pending for the next poll.
++        assert!(state.is_waiting());
++        assert_eq!(state.queue_check(), Some(request));
++        assert!(state.take_check(request));
++        assert!(state.queue_reply(request, true));
++        assert_eq!(state.queue_check(), None);
++        assert_eq!(state.take_reply(request), Some(true));
++    }
++
++    #[test]
++    fn reentrant_callback_defers_without_losing_the_outer_request() {
++        let slot = Rc::new(RefCell::new(None));
++        let weak_slot = Rc::downgrade(&slot);
++        let state = Rc::new(RefCell::new(NativeQuitState::default()));
++        let request = deferred_request(&mut state.borrow_mut());
++        let nested_state = state.clone();
++        let callback: QuitRequestCallback = Rc::new(RefCell::new(Box::new(move || {
++            let slot = weak_slot.upgrade().unwrap();
++            assert_eq!(nested_state.borrow_mut().begin(true).response(), 2);
++            assert!(!native_quit_approved(slot.borrow().as_ref()));
++            true
++        })));
++        *slot.borrow_mut() = Some(callback.clone());
++        assert!(native_quit_approved(Some(&callback)));
++        assert_eq!(state.borrow().request_id(), Some(request));
++        assert!(state.borrow_mut().queue_reply(request, true));
++        assert_eq!(state.borrow_mut().take_reply(request), Some(true));
++    }
++}
++
+ extern "C" fn will_terminate(this: &mut Object, _: Sel, _: id) {
+     let platform = unsafe { get_mac_platform(this) };
+     let mut lock = platform.0.lock();

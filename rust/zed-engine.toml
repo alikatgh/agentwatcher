@@ -1,0 +1,85 @@
+# Phase 0 source-supported pins; this is not an activated Cargo manifest.
+# See docs/zed-editor-integration.md. Cargo resolution/build remain pending.
+schema-version = 1
+
+[upstream]
+repository = "https://github.com/zed-industries/zed"
+tag = "v1.25.0-pre"
+revision = "aa9c16803dd841950e3d4f4c7ecd76f324e0ba44"
+toolchain = "1.98.1"
+mandatory-macos-workspace-crates = 99
+
+[dependencies.gpui]
+package = "gpui"
+default-features = false
+
+[dependencies.gpui_platform]
+package = "gpui_platform"
+default-features = false
+features = ["font-kit", "runtime_shaders"]
+
+[dependencies.zed_editor]
+package = "editor"
+default-features = false
+
+[dependencies.zed_language]
+package = "language"
+default-features = false
+
+[dependencies.zed_multi_buffer]
+package = "multi_buffer"
+default-features = false
+
+[dependencies.zed_settings]
+package = "settings"
+default-features = false
+
+[dependencies.zed_theme]
+package = "theme"
+default-features = false
+
+[dependencies.zed_theme_settings]
+package = "theme_settings"
+default-features = false
+
+[dependencies.zed_release_channel]
+package = "release_channel"
+default-features = false
+
+[dependencies.zed_util]
+package = "util"
+default-features = false
+# Without this feature debug settings assets resolve against AgentWatcher's
+# repository instead of embedding the pinned upstream assets.
+features = ["debug-embed"]
+
+[dependencies.zed_actions]
+package = "zed_actions"
+default-features = false
+
+[dependencies.zed_assets]
+package = "assets"
+default-features = false
+
+# Only patches reachable in the selected macOS source graph. Root Cargo must
+# supply these: an external workspace's patch table is not inherited.
+# Corgi's local scratch patch and unrelated platform/media patches are omitted.
+[patches.tree-sitter-language]
+git = "https://github.com/tree-sitter/tree-sitter"
+rev = "43623ec9bf0eaaf7113285c46e8a09018f181b18"
+
+[patches.async-task]
+git = "https://github.com/zed-industries/async-task.git"
+rev = "015845a19fc31752c02367567d3b8900a406f9da"
+
+[patches.async-process]
+git = "https://github.com/zed-industries/async-process.git"
+rev = "0b6d6713570af61806e1e5cb40e0f757cb93fd9d"
+
+[patches.notify]
+git = "https://github.com/zed-industries/notify"
+rev = "d842f16b2716bd60f09caf3ae3a894237ab38f54"
+
+[patches.notify-types]
+git = "https://github.com/zed-industries/notify"
+rev = "d842f16b2716bd60f09caf3ae3a894237ab38f54"

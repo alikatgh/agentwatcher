@@ -1,0 +1,8 @@
+{
+  "exit_code": 1,
+  "elapsed_seconds": 9.043,
+  "guard_stop": null,
+  "available_after": 6999257088,
+  "profile": "dev optimized opt1 debug0 incrementalfalse",
+  "build_script": "bash build-rust.sh"
+}

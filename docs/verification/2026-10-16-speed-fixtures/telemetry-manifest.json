@@ -1,0 +1,224 @@
+{
+  "purpose": "Reproduce the measured <=64-byte redaction guard and exact before/after equivalence; synthetic fixtures only.",
+  "production_file": "/Users/s_avelova/Documents/projects/agentwatcher/rust/src/telemetry.rs",
+  "before_production_sha256": "8bd1002a1c46db44036b80e2916f1fc7eeffa971f5ab99724b91bfd5fa2af924",
+  "after_production_sha256": "eb7fe25d7d36d7f577f36bc54819feab3235b3f0beaf67fcd1ce03da5cd89302",
+  "baseline_extraction": "Verbatim helper range from the before source: /// Redacts credentials in free text through the #[cfg(test)] mod tests marker, plus required imports; full production source intentionally omitted.",
+  "candidate_extraction": "Verbatim helpers and redaction test range from the verified production source, plus required imports.",
+  "compiler": "rustc 1.98.1 (48a229cea 2026-09-01), aarch64-apple-darwin",
+  "dependencies": {
+    "regex": "1.13.1, full default features",
+    "serde_json": "1.0.154"
+  },
+  "cargo_toml_for_standalone_reproduction": "[package]\nname = \"agentwatcher-redaction-check\"\nversion = \"0.0.0\"\nedition = \"2024\"\npublish = false\n\n[[bin]]\nname = \"redaction-check\"\npath = \"telemetry-harness.rs\"\n\n[dependencies]\nregex = \"=1.13.1\"\nserde_json = \"=1.0.154\"\n\n[profile.dev]\ndebug = 0\nincremental = false\nopt-level = 1\ncodegen-units = 1\n",
+  "historical_test_compile_argv": [
+    "/Users/s_avelova/.rustup/toolchains/1.98.1-aarch64-apple-darwin/bin/rustc",
+    "--edition=2024",
+    "-C",
+    "opt-level=1",
+    "-C",
+    "debuginfo=0",
+    "-C",
+    "codegen-units=1",
+    "-L",
+    "dependency=/private/tmp/codex-session-storage/1272c1d8e896de828cd9e6ee/d1f15879b1cd46aeac80a87553e048d0/target/debug/deps",
+    "--extern",
+    "regex=/private/tmp/codex-session-storage/1272c1d8e896de828cd9e6ee/d1f15879b1cd46aeac80a87553e048d0/target/debug/deps/libregex-10fb91b1cbf2f4f7.rlib",
+    "--extern",
+    "serde_json=/private/tmp/codex-session-storage/1272c1d8e896de828cd9e6ee/d1f15879b1cd46aeac80a87553e048d0/target/debug/deps/libserde_json-fad7dacb372638b9.rlib",
+    "/private/tmp/codex-session-storage/1272c1d8e896de828cd9e6ee/d1f15879b1cd46aeac80a87553e048d0/harness.rs",
+    "-o",
+    "/private/tmp/codex-session-storage/1272c1d8e896de828cd9e6ee/d1f15879b1cd46aeac80a87553e048d0/microtest",
+    "--test"
+  ],
+  "historical_test_run_argv": [
+    "/private/tmp/codex-session-storage/1272c1d8e896de828cd9e6ee/d1f15879b1cd46aeac80a87553e048d0/microtest"
+  ],
+  "historical_benchmark_compile_argv": [
+    "/Users/s_avelova/.rustup/toolchains/1.98.1-aarch64-apple-darwin/bin/rustc",
+    "--edition=2024",
+    "-C",
+    "opt-level=1",
+    "-C",
+    "debuginfo=0",
+    "-C",
+    "codegen-units=1",
+    "-L",
+    "dependency=/private/tmp/codex-session-storage/1272c1d8e896de828cd9e6ee/d1f15879b1cd46aeac80a87553e048d0/target/debug/deps",
+    "--extern",
+    "regex=/private/tmp/codex-session-storage/1272c1d8e896de828cd9e6ee/d1f15879b1cd46aeac80a87553e048d0/target/debug/deps/libregex-10fb91b1cbf2f4f7.rlib",
+    "--extern",
+    "serde_json=/private/tmp/codex-session-storage/1272c1d8e896de828cd9e6ee/d1f15879b1cd46aeac80a87553e048d0/target/debug/deps/libserde_json-fad7dacb372638b9.rlib",
+    "/private/tmp/codex-session-storage/1272c1d8e896de828cd9e6ee/d1f15879b1cd46aeac80a87553e048d0/harness.rs",
+    "-o",
+    "/private/tmp/codex-session-storage/1272c1d8e896de828cd9e6ee/d1f15879b1cd46aeac80a87553e048d0/microbench"
+  ],
+  "historical_benchmark_run_argv": [
+    "/private/tmp/codex-session-storage/1272c1d8e896de828cd9e6ee/d1f15879b1cd46aeac80a87553e048d0/microbench"
+  ],
+  "reproduction_commands": [
+    "Write cargo_toml_for_standalone_reproduction to Cargo.toml alongside these telemetry-*.rs files in a new registered scratch directory.",
+    "RUSTC=/Users/s_avelova/.rustup/toolchains/1.98.1-aarch64-apple-darwin/bin/rustc /Users/s_avelova/.rustup/toolchains/1.98.1-aarch64-apple-darwin/bin/cargo test --offline -j 1",
+    "RUSTC=/Users/s_avelova/.rustup/toolchains/1.98.1-aarch64-apple-darwin/bin/rustc /Users/s_avelova/.rustup/toolchains/1.98.1-aarch64-apple-darwin/bin/cargo run --offline -j 1"
+  ],
+  "format_command": "/Users/s_avelova/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustfmt --edition 2024 --check rust/src/telemetry.rs",
+  "tests": {
+    "passed": [
+      "candidate::tests::redaction_keeps_safe_text_borrowed_and_preserves_public_urls",
+      "candidate::tests::redaction_matches_previous_rules_across_safe_and_sensitive_text",
+      "candidate::tests::redaction_is_consistent_for_env_nested_json_and_private_urls",
+      "candidate::tests::redaction_short_fields_preserve_credentials_at_filter_boundaries",
+      "equivalent_to_actual_previous_source"
+    ],
+    "ignored": [
+      "candidate::tests::benchmark_redaction_allocation_path"
+    ],
+    "equivalent_fixture_count": 10407,
+    "new_boundary_case_count": 50
+  },
+  "fixture_categories": [
+    "Safe ASCII and Unicode activity",
+    "PEM private-key variants, incomplete markers, and multiline text",
+    "Environment and header assignments including Unicode simple case folds Kelvin K and long S",
+    "Bearer and Basic authorization",
+    "Every existing credential prefix, minimum lengths, and nearby nonmatches",
+    "Public/private URLs, query secrets, userinfo, pairing paths, fragments, and Unicode URL paths",
+    "Cross-product token adjacency and whitespace/Unicode/quote boundaries",
+    "JSON keys and values, encoded nested JSON, sensitive environment fields, numeric safe fields, recursion limits",
+    "Short fields at 63/64/65/128-byte boundaries and fields shortened by earlier redaction passes"
+  ],
+  "benchmark_method": "Same-process before/current actual-source helpers; warmup of 10 rounds; seven alternating-order samples; each column is its median. Both outputs asserted equal; regex compilation excluded.",
+  "benchmark_medians": [
+    {
+      "fixture": "safe prose 4 KiB",
+      "calls": 200,
+      "before_ms": 106.583,
+      "after_ms": 103.192,
+      "speedup": 1.033
+    },
+    {
+      "fixture": "credential prose 9 KiB",
+      "calls": 200,
+      "before_ms": 321.407,
+      "after_ms": 309.608,
+      "speedup": 1.038
+    },
+    {
+      "fixture": "safe nested JSON 4 KiB",
+      "calls": 200,
+      "before_ms": 132.345,
+      "after_ms": 133.782,
+      "speedup": 0.989
+    },
+    {
+      "fixture": "credential nested JSON 9 KiB",
+      "calls": 200,
+      "before_ms": 324.036,
+      "after_ms": 307.588,
+      "speedup": 1.053
+    },
+    {
+      "fixture": "small telemetry keys and IDs",
+      "calls": 5000,
+      "before_ms": 3.918,
+      "after_ms": 0.936,
+      "speedup": 4.184
+    },
+    {
+      "fixture": "small credential-bearing fields",
+      "calls": 2000,
+      "before_ms": 2.706,
+      "after_ms": 2.276,
+      "speedup": 1.189
+    },
+    {
+      "fixture": "metadata-heavy JSON 4967 bytes",
+      "calls": 200,
+      "before_ms": 66.688,
+      "after_ms": 37.002,
+      "speedup": 1.802
+    },
+    {
+      "fixture": "mixed 90 percent safe prose",
+      "calls": 500,
+      "before_ms": 326.053,
+      "after_ms": 310.53,
+      "speedup": 1.05
+    }
+  ],
+  "rejected_alternatives": "Unbounded combined RegexSet and unbounded per-rule is_match were output-equivalent but materially slower on long inputs. Rejected logs are retained and neither variant was applied to production.",
+  "limits": "Redaction microbenchmark only; not whole-collector, full native build, or rendered UI validation. Timing reflects this machine and workload.",
+  "storage_before_final_cleanup": {
+    "registered_child_asset_allocated_bytes": 5599232,
+    "compiler_cache_already_removed_allocated_bytes": 26173440,
+    "compiler_cache_files_removed": 112,
+    "duplicate_metadata_and_test_binary_already_removed_allocated_bytes": 21426176
+  },
+  "files": [
+    {
+      "path": "telemetry-before.rs",
+      "bytes": 6308,
+      "allocated_bytes": 8192,
+      "sha256": "898643a3e9831168f6edda9a4fd4caff421aa8f66a9e8999737b60a8f0bcaca5",
+      "origin": "before.rs",
+      "transformation": "Exact byte copy"
+    },
+    {
+      "path": "telemetry-candidate.rs",
+      "bytes": 14725,
+      "allocated_bytes": 16384,
+      "sha256": "285a8c05abee8f7c4838a89edb55c84f2d83a4ac4552bd85f67e283ca36eac1c",
+      "origin": "candidate.rs",
+      "transformation": "Exact byte copy"
+    },
+    {
+      "path": "telemetry-harness.rs",
+      "bytes": 7965,
+      "allocated_bytes": 8192,
+      "sha256": "6736d8fbac8b1a88100249e7897f37af188e91fa7b140205ef997162268b0e29",
+      "origin": "harness.rs",
+      "transformation": "Module path attributes updated for prefixed helper filenames"
+    },
+    {
+      "path": "telemetry-benchmark.log",
+      "bytes": 757,
+      "allocated_bytes": 4096,
+      "sha256": "431ae5a5008efc229b27ddd84e03f21653a2b7aeb53ff845659484796fd38d04",
+      "origin": "short-filter.log",
+      "transformation": "Exact byte copy"
+    },
+    {
+      "path": "telemetry-tests.log",
+      "bytes": 658,
+      "allocated_bytes": 4096,
+      "sha256": "c72ec95ca415a2a80dd118dd8f484412886f6291785e4c098989479b3beb0538",
+      "origin": "final-tests.log",
+      "transformation": "Exact byte copy"
+    },
+    {
+      "path": "telemetry-rejected-regexset.log",
+      "bytes": 1833,
+      "allocated_bytes": 4096,
+      "sha256": "7c7c5cc3d64530b5eb8ee7723912ed804c8313dc56bc8e2bccf113e4f65cec8c",
+      "origin": "regexset.log",
+      "transformation": "Exact byte copy"
+    },
+    {
+      "path": "telemetry-rejected-unbounded-filter.log",
+      "bytes": 550,
+      "allocated_bytes": 4096,
+      "sha256": "bdc313c683f8df7f68d23170491d1f1a5e9662eaace7db0fecd385a1e8814a75",
+      "origin": "per-rule.log",
+      "transformation": "Exact byte copy"
+    }
+  ],
+  "completed_child_cleanup": {
+    "verified_disposable_files_removed": 26,
+    "allocated_bytes_removed": 5599232,
+    "path": "/private/tmp/codex-session-storage/1272c1d8e896de828cd9e6ee/d1f15879b1cd46aeac80a87553e048d0",
+    "all_compiler_cache_and_binaries_removed": true,
+    "copied_evidence_allocated_bytes": 61440,
+    "production_sha256_unchanged": "eb7fe25d7d36d7f577f36bc54819feab3235b3f0beaf67fcd1ce03da5cd89302",
+    "note": "Only exact newly generated, closed, registered child assets were removed after hash-verifying compact copies in root-owned scratch; empty registered root is left for storage helper cleanup."
+  }
+}

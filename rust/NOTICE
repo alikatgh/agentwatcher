@@ -1,0 +1,54 @@
+AgentWatcher native Rust interface and embedded Zed editor
+
+This build embeds the actual Zed Editor, MultiBuffer, language-buffer,
+settings, theme, and GPUI crates from Zed Industries and contributors.
+Pinned upstream: https://github.com/zed-industries/zed
+Revision: aa9c16803dd841950e3d4f4c7ecd76f324e0ba44
+Upstream release: 1.25.0 preview
+Local source: rust/vendor/zed
+
+Zed crates marked GPL-3.0-or-later in their Cargo.toml files, including
+the editor crate, are licensed under GNU General Public License version 3
+or (at your option) any later version. A verbatim license copy is retained
+in LICENSES/Zed-GPL-3.0.txt. Zed components marked Apache-2.0, including
+GPUI, retain the upstream copyright and Apache License 2.0 text in
+LICENSES/Zed-Apache-2.0.txt. These components are provided without warranty;
+the full terms and warranty disclaimers are in those license files.
+
+AgentWatcher's integration files adapt the upstream editor to local buffers,
+application palettes, existing controls and exact-copy behavior. The pinned
+upstream checkout is retained; the integration does not copy the installed
+Zed application's settings, credentials or workspace state.
+
+Redistribution of a linked binary containing GPL-covered Zed components
+requires the applicable GPL permissions and Corresponding Source, including
+AgentWatcher's integration source, build inputs, modifications and the pinned
+upstream source. The upstream URL alone is not the Corresponding Source for
+the combined build. This notice and the license copies do not substitute
+for distributing that source under the applicable terms.
+
+Bundled upstream Zed assets retain their original notices in
+LICENSES/Zed-ICONS-NOTICES.txt, LICENSES/Zed-THEMES-NOTICES.txt,
+LICENSES/Zed-AYU-MIT.txt, LICENSES/Zed-GRUVBOX-MIT.txt,
+LICENSES/Zed-ONE-MIT.txt, LICENSES/Zed-LILEX-OFL-1.1.txt and
+LICENSES/Zed-IBM-PLEX-SANS-OFL-1.1.txt.
+
+rust/src/input.rs is adapted from GPUI 0.2.2 examples/input.rs.
+Copyright 2022 - 2025 Zed Industries, Inc.
+Licensed under the Apache License, Version 2.0.
+The license is retained in LICENSES/GPUI-APACHE-2.0.txt.
+
+GPUI is the Rust UI framework from Zed Industries.
+Other dependencies retain their respective licenses in their published crates.
+The app icon is exported from this project's existing tools/make_icon.py artwork.
+
+Bundled fonts: IBM Plex Sans, Copyright © 2017 IBM Corp. with Reserved Font
+Name "Plex"; JetBrainsMono Nerd Font Mono, Copyright 2020 The JetBrains Mono
+Project Authors, with Nerd Fonts 3.5.1 additions, Copyright (c) 2014 Ryan L
+McIntyre. The upstream font copyright notices and SIL Open Font License 1.1
+texts are retained in LICENSES/IBM-PLEX-SANS-OFL-1.1.txt and
+LICENSES/JETBRAINS-MONO-OFL-1.1.txt. Nerd Fonts licensing and glyph-source
+attributions are retained in LICENSES/NERD-FONTS-3.5.1-LICENSE.txt and
+LICENSES/JETBRAINS-MONO-NERD-FONT-NOTICES.md. The bundled font files are
+unmodified; pinned sources, family names and hashes are recorded in
+resources/fonts/manifest.json.

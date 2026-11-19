@@ -1,0 +1,835 @@
+diff --git a/crates/editor/src/editor.rs b/crates/editor/src/editor.rs
+index dc7cdad..dfd6d52 100644
+--- a/crates/editor/src/editor.rs
++++ b/crates/editor/src/editor.rs
+@@ -986,6 +986,10 @@ pub struct Editor {
+     select_next_state: Option<SelectNextState>,
+     select_prev_state: Option<SelectNextState>,
+     selection_history: SelectionHistory,
++    /// A bounded standalone editor only retains transaction selections after
++    /// the text engine accepts a transaction. Rejected/no-op input has no
++    /// persistent selection-history entry.
++    local_pending_transaction: Option<(TransactionId, TransactionSelections)>,
+     defer_selection_effects: bool,
+     deferred_selection_effects_state: Option<DeferredSelectionEffectsState>,
+     autoclose_regions: Vec<AutocloseRegion>,
+@@ -2373,6 +2377,7 @@ impl Editor {
+             select_next_state: None,
+             select_prev_state: None,
+             selection_history: SelectionHistory::default(),
++            local_pending_transaction: None,
+             defer_selection_effects: false,
+             deferred_selection_effects_state: None,
+             autoclose_regions: Vec::new(),
+@@ -8786,11 +8791,24 @@ impl Editor {
+             .buffer
+             .update(cx, |buffer, cx| buffer.start_transaction_at(now, cx))
+         {
+-            self.selection_history.insert_transaction(
+-                tx_id,
+-                self.selections.disjoint_anchors_arc(),
+-                self.add_selections_state.clone(),
+-            );
++            if self.bounded_local_buffer(cx).is_some() {
++                self.local_pending_transaction = Some((
++                    tx_id,
++                    TransactionSelections {
++                        undo: self.selections.disjoint_anchors_arc(),
++                        redo: None,
++                        undo_add_selections_state: self.add_selections_state.clone(),
++                        redo_add_selections_state: None,
++                    },
++                ));
++                self.prune_local_transaction_selections(cx);
++            } else {
++                self.selection_history.insert_transaction(
++                    tx_id,
++                    self.selections.disjoint_anchors_arc(),
++                    self.add_selections_state.clone(),
++                );
++            }
+             cx.emit(EditorEvent::TransactionBegun {
+                 transaction_id: tx_id,
+             });
+@@ -8805,10 +8823,30 @@ impl Editor {
+         now: Instant,
+         cx: &mut Context<Self>,
+     ) -> Option<TransactionId> {
+-        if let Some(transaction_id) = self
++        let transaction_id = self
+             .buffer
+-            .update(cx, |buffer, cx| buffer.end_transaction_at(now, cx))
+-        {
++            .update(cx, |buffer, cx| buffer.end_transaction_at(now, cx));
++        if let Some((buffer, _)) = self.bounded_local_buffer(cx) {
++            if let Some((started_id, selections)) = self.local_pending_transaction.take() {
++                if transaction_id == Some(started_id) {
++                    self.selection_history
++                        .selections_by_transaction
++                        .entry(started_id)
++                        .or_insert(selections);
++                } else if transaction_id.is_none()
++                    && buffer.read(cx).get_transaction(started_id).is_some()
++                {
++                    // An inner transaction ended. The outer transaction is
++                    // still open, so its initial selections remain pending.
++                    self.local_pending_transaction = Some((started_id, selections));
++                }
++                // A different id is an existing grouped transaction: preserve
++                // its original undo selections and discard the provisional id.
++                // None with no live id is rejected/no-op outer input.
++            }
++            self.prune_local_transaction_selections(cx);
++        }
++        if let Some(transaction_id) = transaction_id {
+             if let Some(transaction) = self.selection_history.transaction_mut(transaction_id) {
+                 transaction.redo = Some(self.selections.disjoint_anchors_arc());
+                 transaction.redo_add_selections_state = self.add_selections_state.clone();
+@@ -8823,6 +8861,38 @@ impl Editor {
+         }
+     }
+ 
++    fn bounded_local_buffer(
++        &self,
++        cx: &App,
++    ) -> Option<(Entity<Buffer>, language::LocalEditPolicy)> {
++        let buffer = self.buffer.read(cx).as_singleton()?;
++        let policy = buffer.read(cx).local_edit_policy()?;
++        Some((buffer, policy))
++    }
++
++    fn prune_local_transaction_selections(&mut self, cx: &App) {
++        let Some((buffer, policy)) = self.bounded_local_buffer(cx) else {
++            return;
++        };
++        let buffer = buffer.read(cx);
++        self.selection_history
++            .selections_by_transaction
++            .retain(|id, _| buffer.get_transaction(*id).is_some());
++        if self.selection_history.selections_by_transaction.len() > policy.max_undo_transactions {
++            let mut ids = self
++                .selection_history
++                .selections_by_transaction
++                .keys()
++                .copied()
++                .collect::<Vec<_>>();
++            ids.sort_unstable();
++            let discard = ids.len() - policy.max_undo_transactions;
++            for id in ids.into_iter().take(discard) {
++                self.selection_history.selections_by_transaction.remove(&id);
++            }
++        }
++    }
++
+     pub fn modify_transaction_selection_history(
+         &mut self,
+         transaction_id: TransactionId,
+@@ -13300,3 +13370,170 @@ pub fn multibuffer_context_lines(cx: &App) -> u32 {
+         .unwrap_or(2)
+         .min(32)
+ }
++
++#[cfg(test)]
++mod local_edit_policy_tests {
++    use super::*;
++    use gpui::{EntityInputHandler, TestAppContext};
++    use language::LocalEditPolicy;
++
++    fn policy(bytes: usize, history_work: usize) -> LocalEditPolicy {
++        LocalEditPolicy {
++            max_serialized_bytes: bytes,
++            max_line_scalars: 4096,
++            newline_bytes: 1,
++            max_history_work: history_work,
++            max_undo_transactions: 2,
++        }
++    }
++
++    #[gpui::test]
++    fn test_local_policy_selection_history_discards_rejected_and_nested_noops(
++        cx: &mut TestAppContext,
++    ) {
++        crate::editor_tests::init_test(cx, |_| {});
++        let buffer = cx.new(|cx| Buffer::local("", cx));
++        buffer.update(cx, |buffer, _| {
++            buffer.set_local_edit_policy(Some(policy(1, 8 * 1024 * 1024)))
++        });
++        let editor = cx.add_window(|window, cx| Editor::for_buffer(buffer, None, window, cx));
++        editor.update(cx, |editor, window, cx| {
++            for _ in 0..1000 {
++                editor.insert("xx", window, cx);
++                editor.transact(window, cx, |_, _, _| {});
++            }
++            assert_eq!(editor.text(cx), "");
++            assert!(
++                editor
++                    .selection_history
++                    .selections_by_transaction
++                    .is_empty()
++            );
++            assert!(editor.local_pending_transaction.is_none());
++            assert!(
++                editor
++                    .start_transaction_at(Instant::now(), window, cx)
++                    .is_some()
++            );
++            assert!(
++                editor
++                    .start_transaction_at(Instant::now(), window, cx)
++                    .is_none()
++            );
++            assert!(editor.end_transaction_at(Instant::now(), cx).is_none());
++            assert!(editor.local_pending_transaction.is_some());
++            assert!(editor.end_transaction_at(Instant::now(), cx).is_none());
++            assert!(editor.local_pending_transaction.is_none());
++            assert!(
++                editor
++                    .selection_history
++                    .selections_by_transaction
++                    .is_empty()
++            );
++        });
++    }
++
++    #[gpui::test]
++    fn test_local_policy_selection_history_preserves_grouped_and_live_undo(
++        cx: &mut TestAppContext,
++    ) {
++        crate::editor_tests::init_test(cx, |_| {});
++        let buffer = cx.new(|cx| Buffer::local("", cx));
++        buffer.update(cx, |buffer, _| {
++            buffer.set_local_edit_policy(Some(policy(16, 8 * 1024 * 1024)));
++            buffer.set_group_interval(Duration::from_secs(60));
++        });
++        let editor = cx.add_window(|window, cx| Editor::for_buffer(buffer, None, window, cx));
++        editor.update(cx, |editor, window, cx| {
++            editor.insert("a", window, cx);
++            let original_id = *editor
++                .selection_history
++                .selections_by_transaction
++                .keys()
++                .next()
++                .unwrap();
++            editor.insert("b", window, cx);
++            assert_eq!(editor.selection_history.selections_by_transaction.len(), 1);
++            assert!(editor.selection_history.transaction(original_id).is_some());
++            assert!(editor.local_pending_transaction.is_none());
++            editor.undo(&Undo, window, cx);
++            assert_eq!(editor.text(cx), "");
++            editor.redo(&Redo, window, cx);
++            assert_eq!(editor.text(cx), "ab");
++            for text in ["c", "d", "e"] {
++                editor.finalize_last_transaction(cx);
++                editor.insert(text, window, cx);
++                assert!(editor.selection_history.selections_by_transaction.len() <= 2);
++            }
++            editor.undo(&Undo, window, cx);
++            editor.undo(&Undo, window, cx);
++            editor.undo(&Undo, window, cx);
++            assert_eq!(editor.text(cx), "abc");
++        });
++    }
++
++    #[gpui::test]
++    fn test_local_policy_native_replacement_rejects_atomically(cx: &mut TestAppContext) {
++        crate::editor_tests::init_test(cx, |_| {});
++        let original = "a".repeat(2048);
++        let buffer = cx.new(|cx| Buffer::local(original.clone(), cx));
++        buffer.update(cx, |buffer, _| {
++            buffer.set_local_edit_policy(Some(policy(2048, 8 * 1024 * 1024)))
++        });
++        let editor = cx.add_window(|window, cx| Editor::for_buffer(buffer, None, window, cx));
++        editor.update(cx, |editor, window, cx| {
++            editor.set_autoindent(false);
++            editor.set_use_autoclose(false);
++            editor.set_use_auto_surround(false);
++            let selections = editor.selections.disjoint_anchors_arc();
++            editor.replace_text_in_range(Some(0..1), "é", window, cx);
++            assert_eq!(editor.text(cx), original);
++            assert_eq!(editor.selections.disjoint_anchors(), &*selections);
++            assert!(
++                editor
++                    .selection_history
++                    .selections_by_transaction
++                    .is_empty()
++            );
++            assert!(editor.local_pending_transaction.is_none());
++            editor.replace_and_mark_text_in_range(Some(0..1), "é", Some(0..1), window, cx);
++            assert_eq!(editor.text(cx), original);
++            assert_eq!(editor.selections.disjoint_anchors(), &*selections);
++            assert!(
++                editor
++                    .text_highlights(HighlightKey::InputComposition, cx)
++                    .is_none()
++            );
++            assert!(editor.ime_transaction.is_none());
++            editor.replace_text_in_range(Some(0..1), "b", window, cx);
++            assert_eq!(editor.text(cx), format!("b{}", "a".repeat(2047)));
++            editor.undo(&Undo, window, cx);
++            assert_eq!(editor.text(cx), original);
++        });
++    }
++
++    #[gpui::test]
++    fn test_local_policy_native_replacement_rejects_exhausted_history_without_deleting(
++        cx: &mut TestAppContext,
++    ) {
++        crate::editor_tests::init_test(cx, |_| {});
++        let buffer = cx.new(|cx| Buffer::local("original", cx));
++        buffer.update(cx, |buffer, _| {
++            buffer.set_local_edit_policy(Some(policy(2048, 0)))
++        });
++        let editor = cx.add_window(|window, cx| Editor::for_buffer(buffer, None, window, cx));
++        editor.update(cx, |editor, window, cx| {
++            let selections = editor.selections.disjoint_anchors_arc();
++            editor.replace_text_in_range(Some(0..8), "new", window, cx);
++            assert_eq!(editor.text(cx), "original");
++            assert_eq!(editor.selections.disjoint_anchors(), &*selections);
++            assert!(
++                editor
++                    .selection_history
++                    .selections_by_transaction
++                    .is_empty()
++            );
++            assert!(editor.local_pending_transaction.is_none());
++        });
++    }
++}
+diff --git a/crates/editor/src/input.rs b/crates/editor/src/input.rs
+index 8bcc20d..648f056 100644
+--- a/crates/editor/src/input.rs
++++ b/crates/editor/src/input.rs
+@@ -2,7 +2,60 @@ use super::*;
+ 
+ const ORDERED_LIST_MAX_MARKER_LEN: usize = 16;
+ 
++/// Native replacement input must be atomic when a standalone buffer can reject
++/// a proposed edit. This captures only immutable selection/composition state.
++struct LocalInputState {
++    buffer: Entity<Buffer>,
++    version: clock::Global,
++    selections: Arc<[Selection<Anchor>]>,
++    add_selections_state: Option<AddSelectionsState>,
++    composition: Option<(HighlightStyle, Vec<Range<Anchor>>)>,
++    ime_transaction: Option<TransactionId>,
++}
++
+ impl Editor {
++    fn local_input_state(&self, cx: &App) -> Option<LocalInputState> {
++        let (buffer, _) = self.bounded_local_buffer(cx)?;
++        let version = buffer.read(cx).version();
++        Some(LocalInputState {
++            buffer,
++            version,
++            selections: self.selections.disjoint_anchors_arc(),
++            add_selections_state: self.add_selections_state.clone(),
++            composition: self
++                .text_highlights(HighlightKey::InputComposition, cx)
++                .map(|(style, ranges)| (style, ranges.to_vec())),
++            ime_transaction: self.ime_transaction,
++        })
++    }
++
++    fn restore_rejected_local_input(
++        &mut self,
++        state: Option<LocalInputState>,
++        window: &mut Window,
++        cx: &mut Context<Self>,
++    ) -> bool {
++        let Some(state) = state else {
++            return false;
++        };
++        let buffer = state.buffer.read(cx);
++        if buffer.local_edit_error().is_none() || buffer.version() != state.version {
++            return false;
++        }
++        self.restore_selections(
++            Some((state.selections, state.add_selections_state)),
++            window,
++            cx,
++        );
++        if let Some((style, ranges)) = state.composition {
++            self.highlight_text(HighlightKey::InputComposition, ranges, style, cx);
++        } else {
++            self.clear_highlights(HighlightKey::InputComposition, cx);
++        }
++        self.ime_transaction = state.ime_transaction;
++        true
++    }
++
+     pub fn set_input_enabled(&mut self, input_enabled: bool) {
+         self.input_enabled = input_enabled;
+     }
+@@ -424,6 +477,10 @@ impl Editor {
+             } else {
+                 this.autoindent_mode.clone()
+             };
++            let local_buffer = this.bounded_local_buffer(cx).map(|(buffer, _)| buffer);
++            let local_version = local_buffer
++                .as_ref()
++                .map(|buffer| buffer.read(cx).version());
+             this.buffer.update(cx, |buffer, cx| {
+                 if has_adjacent_edits {
+                     buffer.edit_non_coalesce(edits, autoindent_mode, cx);
+@@ -431,6 +488,15 @@ impl Editor {
+                     buffer.edit(edits, autoindent_mode, cx);
+                 }
+             });
++            if local_buffer.as_ref().is_some_and(|buffer| {
++                let buffer = buffer.read(cx);
++                buffer.local_edit_error().is_some() && Some(buffer.version()) == local_version
++            }) {
++                // No part of the proposed replacement was accepted. In
++                // particular, do not collapse selections or install predicted
++                // autoclose/linked-edit state for a rejected edit.
++                return;
++            }
+             linked_edits.apply(cx);
+             let new_anchor_selections = new_selections.iter().map(|e| &e.0);
+             let new_selection_deltas = new_selections.iter().map(|e| e.1);
+@@ -2139,7 +2205,7 @@ impl Editor {
+         });
+     }
+ 
+-    fn set_use_auto_surround(&mut self, auto_surround: bool) {
++    pub fn set_use_auto_surround(&mut self, auto_surround: bool) {
+         self.use_auto_surround = auto_surround;
+     }
+ 
+@@ -2867,6 +2933,8 @@ impl EntityInputHandler for Editor {
+             return;
+         }
+ 
++        let local_input = self.local_input_state(cx);
++        let atomic_replacement = local_input.is_some();
+         self.transact(window, cx, |this, window, cx| {
+             let new_selected_ranges = if let Some(range_utf16) = range_utf16 {
+                 if let Some(marked_ranges) = this.marked_text_ranges(cx) {
+@@ -2928,7 +2996,7 @@ impl EntityInputHandler for Editor {
+                 this.change_selections(SelectionEffects::no_scroll(), window, cx, |selections| {
+                     selections.select_ranges(new_selected_ranges)
+                 });
+-                if should_backspace {
++                if should_backspace && !atomic_replacement {
+                     this.backspace(&Default::default(), window, cx);
+                 }
+             }
+@@ -2936,6 +3004,10 @@ impl EntityInputHandler for Editor {
+             this.handle_input(text, window, cx);
+         });
+ 
++        if self.restore_rejected_local_input(local_input, window, cx) {
++            return;
++        }
++
+         if let Some(transaction) = self.ime_transaction {
+             self.buffer.update(cx, |buffer, cx| {
+                 buffer.group_until_transaction(transaction, cx);
+@@ -2957,6 +3029,7 @@ impl EntityInputHandler for Editor {
+             return;
+         }
+ 
++        let local_input = self.local_input_state(cx);
+         let transaction = self.transact(window, cx, |this, window, cx| {
+             let ranges_to_replace = if let Some(mut marked_ranges) = this.marked_text_ranges(cx) {
+                 let snapshot = this.buffer.read(cx).read(cx);
+@@ -3070,6 +3143,10 @@ impl EntityInputHandler for Editor {
+             }
+         });
+ 
++        if self.restore_rejected_local_input(local_input, window, cx) {
++            return;
++        }
++
+         self.ime_transaction = self.ime_transaction.or(transaction);
+         if let Some(transaction) = self.ime_transaction {
+             self.buffer.update(cx, |buffer, cx| {
+diff --git a/crates/language/src/buffer.rs b/crates/language/src/buffer.rs
+index 9244d3e..5a2787d 100644
+--- a/crates/language/src/buffer.rs
++++ b/crates/language/src/buffer.rs
+@@ -103,6 +103,10 @@ pub type BufferRow = u32;
+ /// syntax trees, git status, and diagnostics.
+ pub struct Buffer {
+     text: TextBuffer,
++    local_edit_policy: Option<LocalEditPolicy>,
++    local_edit_work: usize,
++    local_edit_error: Option<&'static str>,
++    local_undo_transactions: std::collections::VecDeque<TransactionId>,
+     branch_state: Option<BufferBranchState>,
+     /// Filesystem state, `None` when there is no path.
+     file: Option<Arc<dyn File>>,
+@@ -149,6 +153,20 @@ pub struct Buffer {
+     reload_with_encoding_txns: HashMap<TransactionId, (&'static Encoding, bool)>,
+ }
+ 
++/// Opt-in bounds for a standalone local editor. These are checked before the
++/// text engine allocates an edit operation. No policy is installed by default.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub struct LocalEditPolicy {
++    pub max_serialized_bytes: usize,
++    pub max_line_scalars: usize,
++    /// Number of serialized bytes per normalized LF (one for LF/CR, two for CRLF).
++    pub newline_bytes: usize,
++    /// Cumulative edit work, including deleted bytes and operation overhead.
++    /// The CRDT retains operations even after undo transactions are forgotten.
++    pub max_history_work: usize,
++    pub max_undo_transactions: usize,
++}
++
+ #[derive(Debug)]
+ pub struct TreeSitterData {
+     chunks: RowChunks,
+@@ -1159,6 +1177,10 @@ impl Buffer {
+         let syntax_map = Mutex::new(SyntaxMap::new(&snapshot));
+         let tree_sitter_data = TreeSitterData::new(snapshot);
+         let mut this = Self {
++            local_edit_policy: None,
++            local_edit_work: 0,
++            local_edit_error: None,
++            local_undo_transactions: Default::default(),
+             saved_mtime,
+             tree_sitter_data: Arc::new(tree_sitter_data),
+             saved_version: buffer.version(),
+@@ -1643,6 +1665,43 @@ impl Buffer {
+         }
+     }
+ 
++    pub fn set_local_edit_policy(&mut self, policy: Option<LocalEditPolicy>) {
++        self.local_edit_policy = policy;
++    }
++
++    pub fn local_edit_policy(&self) -> Option<LocalEditPolicy> {
++        self.local_edit_policy
++    }
++
++    pub fn local_edit_error(&self) -> Option<&'static str> {
++        self.local_edit_error
++    }
++
++    fn reject_local_edit(&mut self, error: &'static str, cx: &mut Context<Self>) {
++        self.local_edit_error = Some(error);
++        cx.notify();
++    }
++
++    fn charge_local_history(&mut self, work: usize, cx: &mut Context<Self>) -> bool {
++        let Some(policy) = self.local_edit_policy else {
++            return true;
++        };
++        if !self.capability.editable() {
++            self.reject_local_edit("This buffer is read-only.", cx);
++            return false;
++        }
++        if self.local_edit_work.saturating_add(work) > policy.max_history_work {
++            self.reject_local_edit(
++                "This editor reached its bounded edit-history budget. Save the draft and reopen the file to continue.",
++                cx,
++            );
++            return false;
++        }
++        self.local_edit_work = self.local_edit_work.saturating_add(work);
++        self.local_edit_error = None;
++        true
++    }
++
+     /// This method is called to signal that the buffer has been saved.
+     pub fn did_save(
+         &mut self,
+@@ -2650,6 +2709,16 @@ impl Buffer {
+             false
+         };
+         if let Some((transaction_id, start_version)) = self.text.end_transaction_at(now) {
++            if let Some(policy) = self.local_edit_policy {
++                if self.local_undo_transactions.back() != Some(&transaction_id) {
++                    self.local_undo_transactions.push_back(transaction_id);
++                }
++                while self.local_undo_transactions.len() > policy.max_undo_transactions {
++                    if let Some(oldest) = self.local_undo_transactions.pop_front() {
++                        self.text.forget_transaction(oldest);
++                    }
++                }
++            }
+             self.did_edit(&start_version, was_dirty, source, cx);
+             Some(transaction_id)
+         } else {
+@@ -2917,6 +2986,9 @@ impl Buffer {
+     {
+         // Skip invalid edits and coalesce contiguous ones.
+         let mut edits: Vec<(Range<usize>, Arc<str>)> = Vec::new();
++        let mut incoming_bytes = 0usize;
++        let mut incoming_count = 0usize;
++        let mut incoming_work = 512usize;
+ 
+         for (range, new_text) in edits_iter {
+             let mut range = range.start.to_offset(self)..range.end.to_offset(self);
+@@ -2925,6 +2997,43 @@ impl Buffer {
+                 mem::swap(&mut range.start, &mut range.end);
+             }
+             let new_text = new_text.into();
++            if let Some(policy) = self.local_edit_policy {
++                if !self.capability.editable() {
++                    self.reject_local_edit("This buffer is read-only.", cx);
++                    return None;
++                }
++                incoming_bytes = incoming_bytes.saturating_add(new_text.len());
++                incoming_count = incoming_count.saturating_add(1);
++                incoming_work = incoming_work
++                    .saturating_add(range.len())
++                    .saturating_add(new_text.len())
++                    .saturating_add(128);
++                if incoming_count > 4096 || incoming_bytes > policy.max_serialized_bytes {
++                    self.reject_local_edit("Edit exceeds the editor byte limit.", cx);
++                    return None;
++                }
++                if self.local_edit_work.saturating_add(incoming_work) > policy.max_history_work {
++                    self.reject_local_edit("This editor reached its bounded edit-history budget. Save the draft and reopen the file to continue.", cx);
++                    return None;
++                }
++                if range.end > self.len()
++                    || self.clip_offset(range.start, Bias::Left) != range.start
++                    || self.clip_offset(range.end, Bias::Left) != range.end
++                {
++                    self.reject_local_edit(
++                        "Edit ranges must end at valid UTF-8 boundaries within the buffer.",
++                        cx,
++                    );
++                    return None;
++                }
++                if edits
++                    .last()
++                    .is_some_and(|(previous, _)| range.start < previous.start)
++                {
++                    self.reject_local_edit("Edit ranges must be ordered within the buffer.", cx);
++                    return None;
++                }
++            }
+             if !new_text.is_empty() || !range.is_empty() {
+                 let prev_edit = edits.last_mut();
+                 let should_coalesce = prev_edit.as_ref().is_some_and(|(prev_range, _)| {
+@@ -2949,6 +3058,58 @@ impl Buffer {
+             return None;
+         }
+ 
++        if let Some(policy) = self.local_edit_policy {
++            let mut cursor = 0;
++            let mut bytes = 0usize;
++            let mut line_scalars = 0usize;
++            let mut check = |character: char| -> bool {
++                bytes = bytes.saturating_add(if character == '\n' {
++                    policy.newline_bytes.max(1)
++                } else {
++                    character.len_utf8()
++                });
++                if character == '\n' {
++                    line_scalars = 0;
++                } else {
++                    line_scalars = line_scalars.saturating_add(1);
++                }
++                bytes <= policy.max_serialized_bytes && line_scalars <= policy.max_line_scalars
++            };
++            for (range, text) in &edits {
++                if range.start < cursor || range.end > self.len() {
++                    self.reject_local_edit(
++                        "Edit ranges must be ordered and within the buffer.",
++                        cx,
++                    );
++                    return None;
++                }
++                let mut characters = text.chars().peekable();
++                if !self.chars_for_range(cursor..range.start).all(&mut check) {
++                    self.reject_local_edit("Edit exceeds the editor byte or line limit.", cx);
++                    return None;
++                }
++                while let Some(mut character) = characters.next() {
++                    if character == '\r' {
++                        if characters.peek() == Some(&'\n') {
++                            characters.next();
++                        }
++                        character = '\n';
++                    }
++                    if !check(character) {
++                        self.reject_local_edit("Edit exceeds the editor byte or line limit.", cx);
++                        return None;
++                    }
++                }
++                cursor = range.end;
++            }
++            if !self.chars_for_range(cursor..self.len()).all(check) {
++                self.reject_local_edit("Edit exceeds the editor byte or line limit.", cx);
++                return None;
++            }
++            self.local_edit_work = self.local_edit_work.saturating_add(incoming_work);
++            self.local_edit_error = None;
++        }
++
+         self.start_transaction();
+         self.pending_autoindent.take();
+         let autoindent_request = autoindent_mode
+@@ -3377,6 +3538,17 @@ impl Buffer {
+ 
+     /// Undoes the most recent transaction.
+     pub fn undo(&mut self, cx: &mut Context<Self>) -> Option<TransactionId> {
++        if let Some(entry) = self.text.peek_undo_stack() {
++            let work =
++                self.text
++                    .get_transaction(entry.transaction_id())
++                    .map_or(512, |transaction| {
++                        512usize.saturating_add(transaction.edit_ids.len().saturating_mul(128))
++                    });
++            if !self.charge_local_history(work, cx) {
++                return None;
++            }
++        }
+         let was_dirty = self.is_dirty();
+         let old_version = self.version.clone();
+ 
+@@ -3437,6 +3609,17 @@ impl Buffer {
+ 
+     /// Manually redoes a specific transaction in the buffer's redo history.
+     pub fn redo(&mut self, cx: &mut Context<Self>) -> Option<TransactionId> {
++        if let Some(entry) = self.text.peek_redo_stack() {
++            let work =
++                self.text
++                    .get_transaction(entry.transaction_id())
++                    .map_or(512, |transaction| {
++                        512usize.saturating_add(transaction.edit_ids.len().saturating_mul(128))
++                    });
++            if !self.charge_local_history(work, cx) {
++                return None;
++            }
++        }
+         let was_dirty = self.is_dirty();
+         let old_version = self.version.clone();
+ 
+@@ -6339,12 +6522,130 @@ pub(crate) fn trailing_whitespace_ranges(
+ 
+ #[cfg(test)]
+ mod tests {
+-    use super::{AutoindentMode, Buffer};
++    use super::{AutoindentMode, Buffer, Capability, LocalEditPolicy};
+     use crate::rust_lang;
+     use futures::FutureExt as _;
+     use gpui::{AppContext as _, TestAppContext};
+     use settings::SettingsStore;
+ 
++    fn local_policy(bytes: usize, line_scalars: usize) -> LocalEditPolicy {
++        LocalEditPolicy {
++            max_serialized_bytes: bytes,
++            max_line_scalars: line_scalars,
++            newline_bytes: 1,
++            max_history_work: 8 * 1024 * 1024,
++            max_undo_transactions: 128,
++        }
++    }
++
++    fn init_local_policy_test(cx: &mut TestAppContext) {
++        cx.update(|cx| {
++            let store = SettingsStore::test(cx);
++            cx.set_global(store);
++        });
++    }
++
++    #[gpui::test]
++    fn test_local_edit_policy_rejects_before_mutation(cx: &mut TestAppContext) {
++        init_local_policy_test(cx);
++        let buffer = cx.new(|cx| Buffer::local("é\n日", cx));
++        buffer.update(cx, |buffer, cx| {
++            buffer.set_local_edit_policy(Some(local_policy(8, 2)));
++            let version = buffer.version();
++            for (range, inserted) in [(1..1, "x"), (0..0, "abcd"), (0..0, "😀😀"), (99..99, "x")]
++            {
++                assert!(buffer.edit([(range, inserted)], None, cx).is_none());
++                assert_eq!(buffer.text(), "é\n日");
++                assert_eq!(buffer.version(), version);
++                assert!(buffer.local_edit_error().is_some());
++            }
++            assert!(buffer.edit([(0..2, "界")], None, cx).is_some());
++            assert_eq!(buffer.text(), "界\n日");
++            assert!(buffer.local_edit_error().is_none());
++            assert!(buffer.undo(cx).is_some());
++            assert_eq!(buffer.text(), "é\n日");
++            assert!(buffer.redo(cx).is_some());
++            assert_eq!(buffer.text(), "界\n日");
++        });
++    }
++
++    #[gpui::test]
++    fn test_local_edit_policy_serialized_endings_and_aggregate_input(cx: &mut TestAppContext) {
++        init_local_policy_test(cx);
++        let buffer = cx.new(|cx| Buffer::local("a\n", cx));
++        buffer.update(cx, |buffer, cx| {
++            let mut policy = local_policy(5, 3);
++            policy.newline_bytes = 2;
++            buffer.set_local_edit_policy(Some(policy));
++            assert!(buffer.edit([(2..2, "b")], None, cx).is_some());
++            assert_eq!(buffer.text(), "a\nb");
++            let version = buffer.version();
++            assert!(buffer.edit([(3..3, "\r\n")], None, cx).is_none());
++            assert_eq!(buffer.version(), version);
++            assert_eq!(buffer.text(), "a\nb");
++            assert!(
++                buffer
++                    .edit([(0..1, "abc"), (2..3, "def")], None, cx)
++                    .is_none()
++            );
++            assert_eq!(buffer.version(), version);
++            assert!(
++                buffer
++                    .edit((0..4097).map(|_| (0..0, "")), None, cx)
++                    .is_none()
++            );
++            assert_eq!(buffer.version(), version);
++        });
++    }
++
++    #[gpui::test]
++    fn test_local_edit_policy_read_only_and_history_budget(cx: &mut TestAppContext) {
++        init_local_policy_test(cx);
++        let buffer = cx.new(|cx| Buffer::local("", cx));
++        buffer.update(cx, |buffer, cx| {
++            let mut policy = local_policy(8, 8);
++            policy.max_history_work = 642;
++            buffer.set_local_edit_policy(Some(policy));
++            buffer.set_capability(Capability::ReadOnly, cx);
++            assert!(buffer.edit([(0..0, "a")], None, cx).is_none());
++            buffer.set_capability(Capability::ReadWrite, cx);
++            assert!(buffer.edit([(0..0, "a")], None, cx).is_some());
++            let version = buffer.version();
++            assert!(buffer.edit([(1..1, "b")], None, cx).is_none());
++            assert!(buffer.undo(cx).is_none());
++            assert_eq!(buffer.version(), version);
++            assert_eq!(buffer.text(), "a");
++        });
++        let empty = cx.new(|cx| Buffer::local("", cx));
++        empty.update(cx, |buffer, cx| {
++            let mut policy = local_policy(8, 8);
++            policy.max_history_work = 0;
++            buffer.set_local_edit_policy(Some(policy));
++            assert!(buffer.edit([(0..0, "a")], None, cx).is_none());
++            assert_eq!(buffer.text(), "");
++        });
++    }
++
++    #[gpui::test]
++    fn test_local_edit_policy_forgets_old_undo_transactions(cx: &mut TestAppContext) {
++        init_local_policy_test(cx);
++        let buffer = cx.new(|cx| Buffer::local("", cx));
++        buffer.update(cx, |buffer, cx| {
++            let mut policy = local_policy(8, 8);
++            policy.max_undo_transactions = 2;
++            buffer.set_local_edit_policy(Some(policy));
++            for text in ["a", "b", "c"] {
++                let end = buffer.len();
++                assert!(buffer.edit([(end..end, text)], None, cx).is_some());
++                buffer.finalize_last_transaction();
++            }
++            assert!(buffer.undo(cx).is_some());
++            assert!(buffer.undo(cx).is_some());
++            assert!(buffer.undo(cx).is_none());
++            assert_eq!(buffer.text(), "a");
++        });
++    }
++
+     #[gpui::test]
+     fn test_undo_during_async_autoindent(cx: &mut TestAppContext) {
+         cx.update(|cx| {

@@ -1,0 +1,187 @@
+{
+  "date": "2026-10-15",
+  "session": "01a137ef-4a96-70d0-8499-f5730c657e84",
+  "upstream_revision": "aa9c16803dd841950e3d4f4c7ecd76f324e0ba44",
+  "toolchain": "1.98.1",
+  "state": "actual editor source integrated; native executable and UI blocked by disk capacity",
+  "checks": {
+    "engine-check-5": {
+      "exit_code": 0,
+      "stop_reason": null,
+      "elapsed_seconds": 5.02,
+      "available_bytes": 839802880,
+      "output": "    Checking agentwatcher v0.2.0 (/Users/s_avelova/Documents/projects/agentwatcher)\nwarning: fields `line_starts`, `preview_ends`, and `width` are never read\n  --> rust/src/content.rs:10:5\n   |\n 7 | pub struct CodeContent {\n   |            ----------- fields in this struct\n...\n10 |     line_starts: Vec<usize>,\n   |     ^^^^^^^^^^^\n11 |     preview_ends: Vec<usize>,\n   |     ^^^^^^^^^^^^\n12 |     pub width: f32,\n   |         ^^^^^\n   |\n   = note: `CodeContent` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis\n   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default\n\nwarning: methods `preview`, `line_range`, `full_line_range`, and `line_for_offset` are never used\n  --> rust/src/content.rs:68:12\n   |\n16 | impl CodeContent {\n   | ---------------- methods in this implementation\n...\n68 |     pub fn preview(&self, index: usize) -> &str {\n   |            ^^^^^^^\n...\n79 |     pub fn line_range(&self, index: usize) -> Range<usize> {\n   |            ^^^^^^^^^^\n...\n85 |     pub fn full_line_range(&self, index: usize) -> Range<usize> {\n   |            ^^^^^^^^^^^^^^^\n...\n94 |     pub fn line_for_offset(&self, offset: usize) -> Option<usize> {\n   |            ^^^^^^^^^^^^^^^\n\nwarning: function `source_line` is never used\n  --> rust/src/style.rs:69:8\n   |\n69 | pub fn source_line(text: &str, p: Palette) -> StyledText {\n   |        ^^^^^^^^^^^\n\nwarning: `agentwatcher` (bin \"agentwatcher\") generated 3 warnings\n    Finished `dev` profile [unoptimized] target(s) in 4.14s\nwarning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6\nnote: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`\n"
+    },
+    "engine-tests-check": {
+      "exit_code": -2,
+      "stop_reason": "Stopped before disk exhaustion: less than512MiB free",
+      "elapsed_seconds": 3.36,
+      "available_bytes": 287019008,
+      "output": ""
+    },
+    "engine-native-build-1": {
+      "exit_code": -2,
+      "stop_reason": "Stopped before disk exhaustion: less than512MiB free",
+      "elapsed_seconds": 55.2,
+      "available_bytes": 532770816,
+      "output": "   Compiling serde_core v1.0.229\n   Compiling libc v0.2.190\n   Compiling serde v1.0.229\n   Compiling bitflags v2.13.2\n   Compiling value-bag v1.14.1\n   Compiling log v0.4.34\n   Compiling smallvec v1.16.3\n   Compiling foldhash v0.2.0\n   Compiling hashbrown v0.17.1\n   Compiling indexmap v2.14.2\n   Compiling futures-core v0.3.34\n   Compiling futures-io v0.3.34\n   Compiling stable_deref_trait v1.2.1\n   Compiling crossbeam-utils v0.8.23\n   Compiling crc32fast v1.5.2\n   Compiling const-oid v0.9.6\n   Compiling errno v0.3.14\n   Compiling once_cell v1.21.4\n   Compiling slab v0.4.12\n   Compiling zerofrom v0.1.8\n   Compiling num-traits v0.2.19\n   Compiling yoke v0.8.3\n   Compiling rustix v1.1.5\n   Compiling digest v0.10.7\n   Compiling hashbrown v0.16.1\n   Compiling parking v2.2.1\n   Compiling zerovec v0.11.8\n   Compiling lock_api v0.4.14\n   Compiling simd-adler32 v0.3.10\n   Compiling serde_json v1.0.154\n   Compiling cpufeatures v0.2.17\n   Compiling writeable v0.6.4\n   Compiling objc2-encode v4.1.0\n   Compiling adler2 v2.0.1\n   Compiling tinystr v0.8.4\n   Compiling core-foundation-sys v0.8.7\n   Compiling futures-sink v0.3.34\n   Compiling litemap v0.8.3\n   Compiling icu_locale_core v2.3.0\n   Compiling potential_utf v0.1.6\n   Compiling zerotrie v0.2.5\n   Compiling zerocopy v0.8.63\n   Compiling icu_provider v2.3.1\n   Compiling futures-lite v2.6.1\n   Compiling concurrent-queue v2.5.0\n   Compiling utf8_iter v1.0.4\n   Compiling icu_collections v2.3.0\n   Compiling futures-channel v0.3.34\n   Compiling sha2 v0.10.9\n   Compiling event-listener v5.4.2\n   Compiling arrayvec v0.7.8\n   Compiling atomic-waker v1.1.2\n   Compiling event-listener-strategy v0.5.4\n   Compiling futures-util v0.3.34\n   Compiling icu_properties_data v2.3.0\n   Compiling icu_normalizer_data v2.3.0\n   Compiling objc2 v0.6.5\n   Compiling miniz_oxide v0.9.1\n   Compiling parking_lot_core v0.9.12\n   Compiling utf16_iter v1.0.5\n   Compiling write16 v1.0.0\n   Compiling icu_normalizer v2.3.0\n   Compiling parking_lot v0.12.5\n   Compiling flate2 v1.1.10\n   Compiling icu_properties v2.3.0\n   Compiling getrandom v0.4.3\n   Compiling percent-encoding v2.3.2\n   Compiling futures-executor v0.3.34\n   Compiling polling v3.11.0\n   Compiling async-task v4.7.1 (https://github.com/zed-industries/async-task.git?rev=015845a19fc31752c02367567d3b8900a406f9da#015845a1)\n   Compiling futures v0.3.34\n   Compiling form_urlencoded v1.2.2\n   Compiling idna_adapter v1.2.2\n   Compiling objc2-core-foundation v0.3.2\n   Compiling idna v1.1.0\n   Compiling async-io v2.6.0\n   Compiling async-lock v3.4.2\n   Compiling async-channel v2.5.0\n   Compiling piper v0.2.5\n   Compiling ref-cast v1.0.27\n   Compiling blocking v1.7.0\n   Compiling url v2.5.8\n   Compiling crossbeam-epoch v0.9.21\n   Compiling gpui_util v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/gpui_util)\n   Compiling bytemuck v1.25.2\n   Compiling dyn-clone v1.0.20\n   Compiling schemars v1.2.3\n   Compiling crossbeam-deque v0.8.8\n   Compiling ppv-lite86 v0.2.21\n   Compiling http v1.5.0\n   Compiling euclid v0.22.14\n   Compiling signal-hook-registry v1.4.8\n   Compiling collections v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/collections)\n   Compiling async-executor v1.14.0\n   Compiling tracing-core v0.1.36\n   Compiling regex v1.13.1\n   Compiling mach2 v0.6.0\n   Compiling pin-project v1.1.13\n   Compiling tracing v0.1.44\n   Compiling libflate_lz77 v2.3.0\n   Compiling block2 v0.6.2\n   Compiling miniz_oxide v0.8.9\n   Compiling sha1_smol v1.0.1\n   Compiling libbz2-rs-sys v0.2.5\n   Compiling option-ext v0.2.0\n   Compiling dirs-sys v0.5.0\n   Compiling bzip2 v0.6.1\n   Compiling uuid v1.28.0\n   Compiling libflate v2.3.2\n   Compiling async-signal v0.2.14\n   Compiling globset v0.4.20\n   Compiling polycool v0.4.0\n   Compiling compression-core v0.4.33\n   Compiling deflate64 v0.1.12\n   Compiling ryu v1.0.23\n   Compiling base64 v0.22.1\n   Compiling compression-codecs v0.4.45\n   Compiling kurbo v0.13.1\n   Compiling async-process v2.5.0 (https://github.com/zed-industries/async-process.git?rev=0b6d6713570af61806e1e5cb40e0f757cb93fd9d#0b6d6713)\n   Compiling include-flate-compress v0.3.4\n   Compiling rayon-core v1.13.0\n   Compiling getrandom v0.3.4\n   Compiling dirs v6.0.0\n   Compiling objc2-foundation v0.3.2\n   Compiling http-body v1.1.0\n   Compiling async-fs v2.2.0\n   Compiling async-net v2.0.0\n   Compiling tempfile v3.27.0\n   Compiling half v2.7.1\n   Compiling spin v0.9.9\n   Compiling path v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/path)\n   Compiling byteorder v1.5.0\n   Compiling smol v2.0.2\n   Compiling rand_core v0.9.5\n   Compiling include-flate v0.3.4\n   Compiling nix v0.31.3\n   Compiling derive_more v2.1.1\n   Compiling svgtypes v0.16.1\n   Compiling async-compression v0.4.50\n   Compiling serde_json_lenient v0.2.4\n   Compiling rust-embed-utils v8.11.0\n   Compiling iana-time-zone v0.1.65\n   Compiling fdeflate v0.3.7\n   Compiling core_maths v0.1.1\n   Compiling smol_str v0.3.6\n   Compiling event-listener v2.5.3\n   Compiling float-cmp v0.9.0\n   Compiling strict-num v0.1.1\n   Compiling async-channel v1.9.0\n   Compiling gpui_shared_string v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/gpui_shared_string)\n   Compiling ttf-parser v0.25.1\n   Compiling chrono v0.4.45\n   Compiling rust-embed v8.11.0\n   Compiling async_zip v0.0.18\n   Compiling command-fds v0.3.3\n   Compiling rand_chacha v0.9.0\n   Compiling nix v0.30.1\n   Compiling slotmap v1.1.1\n   Compiling hash32 v0.3.1\n   Compiling rayon v1.12.0\n   Compiling async-global-executor v2.4.1\n   Compiling lyon_geom v1.0.19\n   Compiling kv-log-macro v1.0.7\n   Compiling which v8.0.6\n   Compiling roxmltree v0.21.1\n   Compiling weezl v0.1.12\n   Compiling arrayref v0.3.9\n   Compiling zune-core v0.5.3\n   Compiling pin-utils v0.1.1\n   Compiling bitflags v1.3.2\n   Compiling data-url v0.3.2\n   Compiling tinyvec v1.13.3\n   Compiling quick-error v2.0.1\n   Compiling async-std v1.13.2\n   Compiling zune-jpeg v0.5.15\n   Compiling tiny-skia-path v0.11.4\n   Compiling ztracing v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/ztracing)\n   Compiling util v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/util)\n   Compiling lyon_path v1.0.19\n   Compiling heapless v0.9.3\n   Compiling rand v0.9.5\n   Compiling num-complex v0.4.6\n   Compiling xattr v1.6.1\n   Compiling memmap2 v0.9.11\n   Compiling filetime v0.2.29\n   Compiling unicode-bidi-mirroring v0.4.0\n   Compiling reborrow v0.5.5\n   Compiling color_quant v1.1.0\n   Compiling unicode-ccc v0.4.0\n   Compiling pulp-wasm-simd-flag v0.1.1\n   Compiling unicode-script v0.5.8\n   Compiling byteorder-lite v0.1.0\n   Compiling gimli v0.32.3\n   Compiling unicode-properties v0.1.3\n   Compiling rustybuzz v0.20.1\n   Compiling addr2line v0.25.1\n   Compiling image-webp v0.2.4\n   Compiling pulp v0.22.3\n   Compiling gif v0.14.2\n   Compiling accesskit v0.24.1\n   Compiling async-tar v0.6.1 (https://github.com/zed-industries/async-tar?rev=bd3ad6f89df9a9da7a8535958756d6bf465936a0#bd3ad6f8)\n   Compiling fontdb v0.23.0\n   Compiling sum_tree v0.1.0 (/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed/crates/sum_tree)\n   Compiling object v0.37.3\n   Compiling png v0.17.16\n"
+    },
+    "python_tooling": {
+      "status": "passed",
+      "command": "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools -p 'test*zed*.py' -q",
+      "tests": 70,
+      "elapsed_seconds": 6.334
+    },
+    "targeted_formatting": {
+      "status": "passed",
+      "toolchain": "existing stable rustfmt",
+      "files": [
+        "main.rs",
+        "code_view.rs",
+        "zed_editor_runtime.rs",
+        "input.rs",
+        "chat_panel.rs",
+        "tools_panel.rs",
+        "workspace_editor.rs",
+        "event_view.rs",
+        "style.rs"
+      ]
+    },
+    "shell_syntax": {
+      "status": "passed",
+      "command": "bash -n build-rust.sh"
+    },
+    "upstream_patch_whitespace": {
+      "status": "passed",
+      "command": "git -C rust/vendor/zed diff --check"
+    },
+    "source_pin_and_patch": {
+      "status": "passed",
+      "command": "python3 tools/setup_zed_engine.py"
+    }
+  },
+  "source_hashes": {
+    "Cargo.toml": "099c17d7f53e64b7242ac290fcaf4d2d80eaec9df594aa4126f1f344ae81939d",
+    "Cargo.lock": "a1686c82955e96341ef908f1606edf3dd797aaa0deb50fbfdc3719363a47503a",
+    "rust/src/code_view.rs": "643eca878c465ae32e671885932720585d0da041cde6c206a36140edcd585e53",
+    "rust/src/zed_editor_runtime.rs": "427922945780afc979f00fc9edb6f49f15b5fb230d1a58a5e383548cae5d776f",
+    "rust/zed-patches/0001-bounded-local-buffers.patch": "d6d428c0fb3b3278d728eaa5ed1328680a5c241681f40ddf46400be90e5f0008"
+  },
+  "independent_review": {
+    "engine": "confirmed clipboard dispatch, bounded transaction history, atomic IME replacement and readonly paging findings fixed; no remaining confirmed source defect",
+    "packaging": "confirmed undeclared extracted inputs including LICENSES and compile/package identity findings fixed"
+  },
+  "not_run": [
+    "native executable link",
+    "new packaged app launch and rendered interaction",
+    "adapter binary-module test execution",
+    "upstream GPUI policy test execution",
+    "LSP/Project integration"
+  ],
+  "storage": {
+    "target": "/private/tmp/codex-session-storage/96cc3865c54bae0fecd8940a/7ea54e63998a4dd4aff89076f18120eb/target",
+    "target_inode": 275546929,
+    "files": 8497,
+    "allocated_bytes_removed": 1175511040,
+    "metadata_cleanup": {
+      "session": "01a137ef-4a96-70d0-8499-f5730c657e84",
+      "action": "removed standalone cargo-check metadata from current session target only",
+      "target": "/private/tmp/codex-session-storage/96cc3865c54bae0fecd8940a/7ea54e63998a4dd4aff89076f18120eb/target",
+      "file_count": 728,
+      "apparent_bytes": 668372688,
+      "allocated_bytes": 669798400,
+      "free_before": 269950976,
+      "free_after": 937279488
+    },
+    "free_before": 295862272,
+    "target_removed": true,
+    "free_after": 1375490048,
+    "remaining_scratch_files_removed": 16,
+    "remaining_scratch_allocated_bytes_removed": 139264,
+    "managed_scratch_empty": true,
+    "retained": {
+      "rust/vendor/zed": "pinned upstream source dependency, retained for continued development",
+      "Rust1.98.1 minimal toolchain": "required build compiler, global stable unchanged",
+      "dist/rust-zed-engine-source-0.2.0": "verified source deliverable; no native app in this output"
+    },
+    "final": {
+      "available_bytes": 1297936384,
+      "swap_allocated_bytes": 11005853696,
+      "watched_paths": {
+        "/Users/s_avelova/.rustup/toolchains/1.98.1-aarch64-apple-darwin": {
+          "allocated_bytes": 457216000
+        },
+        "/Users/s_avelova/Documents/projects/agentwatcher/dist/AgentWatcher-Zed-Review.app": {
+          "allocated_bytes": 2256896
+        },
+        "/Users/s_avelova/Documents/projects/agentwatcher/dist/rust-agents-skills-review-0.2.0": {
+          "allocated_bytes": 26857472
+        },
+        "/Users/s_avelova/Documents/projects/agentwatcher/dist/rust-dashboard-review-0.2.0": {
+          "allocated_bytes": 25513984
+        },
+        "/Users/s_avelova/Documents/projects/agentwatcher/dist/rust-editor-graph-review-0.2.0": {
+          "allocated_bytes": 27422720
+        },
+        "/Users/s_avelova/Documents/projects/agentwatcher/dist/rust-graph-engine-review-0.2.0": {
+          "allocated_bytes": 26284032
+        },
+        "/Users/s_avelova/Documents/projects/agentwatcher/dist/rust-integrated-tools-review-0.2.0": {
+          "allocated_bytes": 28254208
+        },
+        "/Users/s_avelova/Documents/projects/agentwatcher/dist/rust-integrated-tools-review-0.2.0-v2": {
+          "allocated_bytes": 28250112
+        },
+        "/Users/s_avelova/Documents/projects/agentwatcher/dist/rust-integrated-tools-review-0.2.0-v3": {
+          "allocated_bytes": 28254208
+        },
+        "/Users/s_avelova/Documents/projects/agentwatcher/dist/rust-integrated-tools-review-0.2.0-v4": {
+          "allocated_bytes": 28286976
+        },
+        "/Users/s_avelova/Documents/projects/agentwatcher/dist/rust-provider-chat-review-0.2.0": {
+          "allocated_bytes": 28532736
+        },
+        "/Users/s_avelova/Documents/projects/agentwatcher/dist/rust-provider-chat-review-0.2.0-v2": {
+          "allocated_bytes": 28532736
+        },
+        "/Users/s_avelova/Documents/projects/agentwatcher/dist/rust-provider-chat-review-0.2.0-v3": {
+          "allocated_bytes": 28561408
+        },
+        "/Users/s_avelova/Documents/projects/agentwatcher/dist/rust-review-0.2.0": {
+          "allocated_bytes": 23261184
+        },
+        "/Users/s_avelova/Documents/projects/agentwatcher/dist/rust-themes-performance-review-0.2.0": {
+          "allocated_bytes": null,
+          "limitation": "Incomplete or unreadable directory scan"
+        },
+        "/Users/s_avelova/Documents/projects/agentwatcher/dist/rust-zed-engine-source-0.2.0": {
+          "allocated_bytes": 32411648
+        },
+        "/Users/s_avelova/Documents/projects/agentwatcher/rust/vendor/zed": {
+          "allocated_bytes": 126894080
+        },
+        "/Users/s_avelova/Documents/projects/agentwatcher/target": {
+          "allocated_bytes": 311701504
+        }
+      },
+      "managed_assets": [
+        {
+          "asset_id": "7ea54e63998a4dd4aff89076f18120eb",
+          "path": "/private/tmp/codex-session-storage/96cc3865c54bae0fecd8940a/7ea54e63998a4dd4aff89076f18120eb",
+          "label": "zed-native-engine-build",
+          "keep_reason": "",
+          "status": "removed"
+        }
+      ],
+      "attribution": "Free space and swap fluctuate with other sessions and APFS; only exact registered compiler files were reclaimed."
+    }
+  },
+  "source_archive": {
+    "file": "/Users/s_avelova/Documents/projects/agentwatcher/dist/rust-zed-engine-source-0.2.0/AgentWatcher-0.2.0-source.tar.gz",
+    "bytes": 30446250,
+    "sha256": "f6eb4524ce9bf50a85e60c5653d2edc6acd147c604071fe5bd2a65ec6b6515a9",
+    "verified_regular_source_members": 4442,
+    "uncompressed_bytes": 103027390,
+    "verification": "Streamed every tar member against its recorded size, octal mode and SHA256; no archive symlinks or paths outside archive root"
+  }
+}

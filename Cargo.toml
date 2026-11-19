@@ -1,0 +1,68 @@
+[package]
+name = "agentwatcher"
+version = "0.2.0"
+edition = "2024"
+rust-version = "1.98.1"
+publish = false
+description = "A native Rust and GPUI workspace for watching coding agents"
+
+[lib]
+path = "rust/src/lib.rs"
+
+[[bin]]
+name = "agentwatcher"
+path = "rust/src/main.rs"
+
+[dependencies]
+anyhow = "1"
+# Compile embedded shaders through Metal at launch; a separate Xcode Metal
+# compiler download is not needed to build this application.
+gpui = { path = "rust/vendor/zed/crates/gpui", default-features = false }
+gpui_platform = { path = "rust/vendor/zed/crates/gpui_platform", default-features = false, features = ["font-kit", "runtime_shaders"] }
+zed_editor = { package = "editor", path = "rust/vendor/zed/crates/editor", default-features = false }
+zed_language = { package = "language", path = "rust/vendor/zed/crates/language", default-features = false }
+zed_multi_buffer = { package = "multi_buffer", path = "rust/vendor/zed/crates/multi_buffer", default-features = false }
+zed_settings = { package = "settings", path = "rust/vendor/zed/crates/settings", default-features = false }
+zed_theme = { package = "theme", path = "rust/vendor/zed/crates/theme", default-features = false }
+zed_theme_settings = { package = "theme_settings", path = "rust/vendor/zed/crates/theme_settings", default-features = false }
+zed_release_channel = { package = "release_channel", path = "rust/vendor/zed/crates/release_channel", default-features = false }
+zed_util = { package = "util", path = "rust/vendor/zed/crates/util", default-features = false, features = ["debug-embed"] }
+zed_actions = { package = "zed_actions", path = "rust/vendor/zed/crates/zed_actions", default-features = false }
+zed_assets = { package = "assets", path = "rust/vendor/zed/crates/assets", default-features = false }
+# Match the pinned Zed lockfile: newer derives require hidden re-exports that
+# this revision does not provide. Pin helpers too; their requirements are caret.
+rust-embed = "=8.11.0"
+rust-embed-impl = "=8.11.0"
+rust-embed-utils = "=8.11.0"
+# Keep the prerelease diagram family aligned with Zed's pinned merman facade;
+# its caret requirements otherwise select incompatible stable helper APIs.
+merman-core = { version = "=0.8.0-alpha.5", default-features = false }
+merman-render = { version = "=0.8.0-alpha.5", default-features = false }
+dugong = "=0.8.0-alpha.5"
+dugong-graphlib = "=0.8.0-alpha.5"
+manatee = "=0.8.0-alpha.5"
+semver = "1"
+libc = "0.2"
+regex = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+smol = "2"
+unicode-segmentation = "1"
+
+[patch.crates-io]
+tree-sitter-language = { git = "https://github.com/tree-sitter/tree-sitter", rev = "43623ec9bf0eaaf7113285c46e8a09018f181b18" }
+async-task = { git = "https://github.com/zed-industries/async-task.git", rev = "015845a19fc31752c02367567d3b8900a406f9da" }
+async-process = { git = "https://github.com/zed-industries/async-process.git", rev = "0b6d6713570af61806e1e5cb40e0f757cb93fd9d" }
+notify = { git = "https://github.com/zed-industries/notify", rev = "d842f16b2716bd60f09caf3ae3a894237ab38f54" }
+notify-types = { git = "https://github.com/zed-industries/notify", rev = "d842f16b2716bd60f09caf3ae3a894237ab38f54" }
+
+[profile.dev]
+debug = 0
+incremental = false
+opt-level = 1
+
+[profile.release]
+debug = 0
+strip = "symbols"
+lto = "thin"
+codegen-units = 16

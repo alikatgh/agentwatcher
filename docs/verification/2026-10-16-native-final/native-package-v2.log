@@ -1,0 +1,16 @@
+Embedded Zed source verified: aa9c16803dd841950e3d4f4c7ecd76f324e0ba44; 2 integration patch(es)
+{"file-count": 4444, "record": "/Users/s_avelova/Documents/projects/agentwatcher/dist/rust-sol-speed-review-0.2.0-v2/source-inputs.json", "state-sha256": "a4040a52a673080833338006b7d2220fa02d015c3d2f115b69dffc26ee9efddf"}
+warning: function `source_line` is never used
+  --> rust/src/style.rs:69:8
+   |
+69 | pub fn source_line(text: &str, p: Palette) -> StyledText {
+   |        ^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `agentwatcher` (bin "agentwatcher") generated 1 warning
+    Finished `dev` profile [optimized] target(s) in 1.82s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+/Users/s_avelova/Documents/projects/agentwatcher/dist/rust-sol-speed-review-0.2.0-v2/AgentWatcher.app: replacing existing signature
+/Users/s_avelova/Documents/projects/agentwatcher/dist/rust-sol-speed-review-0.2.0-v2/AgentWatcher.app: resource fork, Finder information, or similar detritus not allowed

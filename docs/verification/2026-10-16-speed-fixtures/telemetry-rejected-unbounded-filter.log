@@ -1,0 +1,7 @@
+Equivalent fixtures: 10407
+safe prose 4 KiB: 200 calls, before=233.564ms candidate=912.415ms speedup=0.256x
+credential prose 9 KiB: 200 calls, before=427.269ms candidate=618.233ms speedup=0.691x
+safe nested JSON 4 KiB: 200 calls, before=189.802ms candidate=361.563ms speedup=0.525x
+credential nested JSON 9 KiB: 200 calls, before=522.145ms candidate=743.336ms speedup=0.702x
+small telemetry keys and IDs: 2500 calls, before=0.761ms candidate=0.312ms speedup=2.441x
+mixed 90% safe prose: 500 calls, before=384.274ms candidate=749.776ms speedup=0.513x
